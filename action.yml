@@ -1,0 +1,41 @@
+name: "DebtRadar Code Quality Check"
+description: "Analiza la calidad del código y falla PRs por debajo del umbral"
+author: "DebtRadar"
+
+branding:
+  icon: "check-circle"
+  color: "green"
+
+inputs:
+  path:
+    description: "Ruta del directorio a analizar"
+    required: false
+    default: "."
+  fail_below:
+    description: "Fallar si el grado es menor que (A, B, C, D)"
+    required: false
+    default: "B"
+  max_files:
+    description: "Máximo de archivos a analizar"
+    required: false
+    default: "5000"
+  workers:
+    description: "Número de workers paralelos"
+    required: false
+    default: "4"
+
+outputs:
+  grade:
+    description: "Grado obtenido (A, B, C, D, F)"
+  score:
+    description: "Score promedio (0-100)"
+  passed:
+    description: "Si pasó el umbral (true/false)"
+
+runs:
+  using: "docker"
+  image: "Dockerfile"
+
+branding:
+  icon: "check-circle"
+  color: "green"

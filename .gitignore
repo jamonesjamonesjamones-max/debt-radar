@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+backend/venv/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Local configuration and secrets
+.env
+.env.*
+.envlocal
+!.env.example
+*.pem
+*.key
+
+# Local runtime data
+*.db
+*.sqlite
+*.sqlite3
+.debtradar/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.tar.gz

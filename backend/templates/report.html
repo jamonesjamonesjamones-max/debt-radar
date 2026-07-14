@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DebtRadar Report — {{ summary.grade }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+    body { font-family: 'Inter', sans-serif; background: #0a0a0c; color: #e4e4e7; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="min-h-screen p-8">
+  <div class="max-w-5xl mx-auto space-y-8">
+
+    <!-- Header -->
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center">
+      <div class="text-8xl font-bold mono mb-2
+        {% if summary.grade == 'A' %}text-green-400
+        {% elif summary.grade == 'B' %}text-lime-400
+        {% elif summary.grade == 'C' %}text-amber-400
+        {% elif summary.grade == 'D' %}text-orange-400
+        {% else %}text-red-400{% endif %}">
+        {{ summary.grade }}
+      </div>
+      <div class="text-xl text-gray-300 mb-1">{{ summary.grade_label }}</div>
+      <div class="text-gray-500">Score promedio: <span class="mono font-bold text-gray-300">{{ summary.average_score }}</span>/100</div>
+      <div class="text-sm text-gray-600 mt-2">Generado por DebtRadar — {{ generated_at }}</div>
+    </div>
+
+    <!-- Métricas -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold mono text-blue-400">{{ summary.total_files }}</div>
+        <div class="text-xs text-gray-500">Archivos</div>
+      </div>
+      <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold mono text-blue-400">{{ "{:,}".format(summary.total_lines) }}</div>
+        <div class="text-xs text-gray-500">Líneas</div>
+      </div>
+      <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold mono text-amber-400">{{ summary.total_violations }}</div>
+        <div class="text-xs text-gray-500">Violaciones</div>
+      </div>
+      <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold mono text-green-400">{{ summary.scan_time_seconds }}s</div>
+        <div class="text-xs text-gray-500">Tiempo</div>
+      </div>
+      <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold mono text-gray-400">{{ summary.files_skipped }}</div>
+        <div class="text-xs text-gray-500">Omitidos</div>
+      </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Radar -->
+      <div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+        <h3 class="text-sm font-medium text-gray-400 mb-4">Radar de Deuda Técnica</h3>
+        <canvas id="radarChart"></canvas>
+      </div>
+
+      <!-- Violations by Type -->
+      <div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+        <h3 class="text-sm font-medium text-gray-400 mb-4">Violaciones por Tipo</h3>
+        <canvas id="violationsChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Grade Distribution -->
+    <div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+      <h3 class="text-sm font-medium text-gray-400 mb-4">Distribución de Grados</h3>
+      <canvas id="gradeChart" height="80"></canvas>
+    </div>
+
+    <!-- Top Offenders -->
+    <div class="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-800">
+        <h3 class="text-sm font-medium text-gray-400">🏆 Top Offenders</h3>
+      </div>
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-800 text-left text-gray-500 text-xs uppercase">
+            <th class="px-6 py-3">#</th>
+            <th class="px-6 py-3">Score</th>
+            <th class="px-6 py-3">Grado</th>
+            <th class="px-6 py-3 text-right">Líneas</th>
+            <th class="px-6 py-3 text-right">Viol</th>
+            <th class="px-6 py-3">Archivo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in top_offenders %}
+          <tr class="border-b border-gray-800/50 hover:bg-gray-800/30">
+            <td class="px-6 py-3 text-gray-500 mono">{{ loop.index }}</td>
+            <td class="px-6 py-3 mono font-bold
+              {% if f.score >= 90 %}text-green-400
+              {% elif f.score >= 75 %}text-lime-400
+              {% elif f.score >= 60 %}text-amber-400
+              {% elif f.score >= 40 %}text-orange-400
+              {% else %}text-red-400{% endif %}">{{ f.score }}</td>
+            <td class="px-6 py-3">
+              <span class="px-2 py-0.5 rounded text-xs font-bold mono
+                {% if f.grade == 'A' %}bg-green-400/15 text-green-400
+                {% elif f.grade == 'B' %}bg-lime-400/15 text-lime-400
+                {% elif f.grade == 'C' %}bg-amber-400/15 text-amber-400
+                {% elif f.grade == 'D' %}bg-orange-400/15 text-orange-400
+                {% else %}bg-red-400/15 text-red-400{% endif %}">{{ f.grade }}</span>
+            </td>
+            <td class="px-6 py-3 text-right mono text-gray-400">{{ "{:,}".format(f.lines) }}</td>
+            <td class="px-6 py-3 text-right mono text-gray-400">{{ f.violations }}</td>
+            <td class="px-6 py-3 mono text-gray-300 truncate max-w-xs">{{ f.short_path }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-center text-xs text-gray-600 py-4">
+      📡 DebtRadar — Auditor forense de salud de código · 100% local · tu código nunca sale de tu máquina
+    </div>
+  </div>
+
+  <script>
+    // Radar Chart
+    new Chart(document.getElementById('radarChart'), {
+      type: 'radar',
+      data: {
+        labels: {{ radar_labels | tojson }},
+        datasets: [{
+          data: {{ radar_values | tojson }},
+          borderColor: '#6366f1',
+          backgroundColor: 'rgba(99,102,241,0.15)',
+          borderWidth: 2,
+          pointBackgroundColor: '#6366f1',
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks: { color: '#71717a', backdropColor: 'transparent' }, grid: { color: '#27272a' }, pointLabels: { color: '#a1a1aa' } } },
+        plugins: { legend: { display: false } }
+      }
+    });
+
+    // Violations Chart
+    new Chart(document.getElementById('violationsChart'), {
+      type: 'doughnut',
+      data: {
+        labels: {{ violation_labels | tojson }},
+        datasets: [{
+          data: {{ violation_values | tojson }},
+          backgroundColor: ['#ef4444', '#f59e0b', '#22c55e'],
+          borderWidth: 0,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom', labels: { color: '#a1a1aa' } } }
+      }
+    });
+
+    // Grade Distribution Chart
+    new Chart(document.getElementById('gradeChart'), {
+      type: 'bar',
+      data: {
+        labels: ['A', 'B', 'C', 'D', 'F'],
+        datasets: [{
+          data: {{ grade_values | tojson }},
+          backgroundColor: ['#22c55e', '#84cc16', '#f59e0b', '#f97316', '#ef4444'],
+          borderWidth: 0,
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: { y: { ticks: { color: '#71717a', stepSize: 1 }, grid: { color: '#27272a' } }, x: { ticks: { color: '#a1a1aa' }, grid: { display: false } } },
+        plugins: { legend: { display: false } }
+      }
+    });
+  </script>
+</body>
+</html>

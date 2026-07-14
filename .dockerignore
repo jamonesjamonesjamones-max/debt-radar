@@ -1,0 +1,15 @@
+.git
+.github
+.kiro
+.vscode
+
+backend/venv
+frontend/node_modules
+frontend/dist
+
+**/__pycache__
+**/*.py[cod]
+*.log
+*.sqlite
+*.db
+.env

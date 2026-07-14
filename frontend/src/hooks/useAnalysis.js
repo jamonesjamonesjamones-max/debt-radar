@@ -112,7 +112,10 @@ export function useAnalysis() {
           // Solo marcar error si seguimos en scanning (no fue un cierre limpio)
           setState((prev) => {
             if (prev === "scanning") {
-              setError("Connection lost with server");
+              setError(
+                "The scan started, but the progress stream could not connect. " +
+                "Make sure the backend is running on port 8000 and retry."
+              );
               return "error";
             }
             return prev;

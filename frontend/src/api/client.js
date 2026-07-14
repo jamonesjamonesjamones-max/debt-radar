@@ -13,18 +13,41 @@ export const API_BASE = import.meta.env.VITE_API_BASE?.replace(/\/$/, "") || "";
  * @returns {Promise<{job_id: string, status: string}>}
  */
 export async function startScan(path, workers = 4) {
-  const res = await fetch(`${API_BASE}/api/scan`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path, workers }),
-  });
+  const url = `${API_BASE}/api/scan`;
+  let res;
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Unknown error" }));
-    throw new Error(err.detail || `HTTP ${res.status}`);
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, workers }),
+    });
+  } catch (error) {
+    throw new Error(
+      `Cannot reach the DebtRadar backend at ${url}. ` +
+      "Start the backend on port 8000 and try again. " +
+      `Details: ${error.message}`
+    );
   }
 
-  return res.json();
+  const body = await res.text();
+  let parsed = null;
+  try {
+    parsed = body ? JSON.parse(body) : null;
+  } catch {
+    // Proxies can return HTML/plain text for 404, 502, or 500 responses.
+  }
+
+  if (!res.ok) {
+    const detail = parsed?.detail || body.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    throw new Error(detail || `HTTP ${res.status} ${res.statusText}`);
+  }
+
+  if (!parsed) {
+    throw new Error(`Backend returned an invalid response (HTTP ${res.status}).`);
+  }
+
+  return parsed;
 }
 
 /**

@@ -30,5 +30,8 @@ Thumbs.db
 .vscode/
 .idea/
 *.tar.gz
+# AI agent planning artifacts (keep locally, not on GitHub)
+.kiro/
+docs/superpowers/
 DEVPOST.md
 CONTEXT.md

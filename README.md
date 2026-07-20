@@ -68,7 +68,7 @@ The real problem is **accidental complexity**, regardless of its origin. A human
 ## Screenshots
 
 <div align="center">
-  <i>Coming soon</i>
+  <i>(Screenshots pending — see the Devpost submission for the full demo)</i>
 </div>
 
 ---

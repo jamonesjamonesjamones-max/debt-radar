@@ -22,9 +22,12 @@ from utils.badges import generate_grade_badge, generate_error_badge
 from utils.report_generator import generate_html_report
 from analyzer.git_history import analyze_last_n_commits
 from analyzer.git_blame import analyze_blame
+from analyzer.recommendations import compute_all_recommendations
+from analyzer.scan_diff import compute_full_diff
+from analyzer.dependency_graph import build_dependency_graph
 from utils.git_utils import is_git_repo
 from utils.llm_client import check_ollama_status, get_refactor_suggestion
-from utils.history_db import save_scan, compare_with_last, get_scan_history
+from utils.history_db import save_scan, compare_with_last, get_scan_history, get_all_latest_scans
 from utils.path_security import is_sensitive_system_path
 
 router = APIRouter()
@@ -242,6 +245,94 @@ async def get_git_blame(job_id: str):
     files = job["result"].get("files", [])
     blame_data = analyze_blame(repo_path, files)
     return blame_data
+
+
+@router.get("/scan/{job_id}/recommendations")
+async def get_recommendations(job_id: str):
+    """
+    Returns prioritized refactoring recommendations for a completed scan.
+    Each file gets an impact ratio (score gain per minute of effort).
+    Sorted by impact (highest first).
+    """
+    job = active_jobs.get(job_id)
+    if not job or job.get("status") != "completed" or not job.get("result"):
+        raise HTTPException(status_code=404, detail="Job not found or not completed")
+
+    files = job["result"].get("files", [])
+    if not files:
+        raise HTTPException(status_code=404, detail="No files in scan result")
+
+    recommendations = compute_all_recommendations(files)
+    return recommendations
+
+
+@router.get("/scan/{job_id}/diff")
+async def get_scan_diff(job_id: str, against: str = ""):
+    """
+    Compare this scan's results against a previous scan.
+    If  is empty, checks if comparison data exists.
+    Otherwise compares against another job_id.
+    """
+    job = active_jobs.get(job_id)
+    if not job or job.get("status") != "completed" or not job.get("result"):
+        raise HTTPException(status_code=404, detail="Job not found or not completed")
+
+    current_files = job["result"].get("files", [])
+
+    if against:
+        prev_job = active_jobs.get(against)
+        if not prev_job or not prev_job.get("result"):
+            raise HTTPException(status_code=404, detail="Previous job not found")
+        previous_files = prev_job["result"].get("files", [])
+        diff = compute_full_diff(current_files, previous_files)
+        return diff
+    else:
+        # No against specified, return comparison from history if available
+        comparison = job["result"].get("comparison")
+        if not comparison:
+            raise HTTPException(status_code=404, detail="No comparison data. Specify ?against=job_id to compare two scans.")
+        return {"error": "Specify ?against=job_id for file-by-file diff", "comparison": comparison}
+
+
+@router.get("/scan/{job_id}/dependency-graph")
+async def get_dependency_graph(job_id: str):
+    """
+    Returns a dependency graph for the scanned files.
+    Uses import/require statements to build a force-directed graph.
+    """
+    job = active_jobs.get(job_id)
+    if not job or job.get("status") != "completed" or not job.get("result"):
+        raise HTTPException(status_code=404, detail="Job not found or not completed")
+
+    files = job["result"].get("files", [])
+    if not files:
+        raise HTTPException(status_code=404, detail="No files in scan result")
+
+    repo_path = job.get("path", "")
+    # Read file contents from disk for dependency analysis
+    enriched = []
+    for f in files:
+        fp = f.get("path", "")
+        content = ""
+        if fp and os.path.isfile(fp):
+            try:
+                with open(fp, "r", encoding="utf-8", errors="ignore") as fh:
+                    content = fh.read()
+            except Exception:
+                pass
+        enriched.append({**f, "content": content})
+    graph = build_dependency_graph(enriched, repo_path)
+    return graph
+
+
+@router.get("/scan/all-projects")
+async def get_all_projects():
+    """
+    Returns the latest scan for each unique project path.
+    Useful for a portfolio/CI dashboard view.
+    """
+    projects = get_all_latest_scans()
+    return {"projects": projects, "total": len(projects)}
 
 
 @router.get("/ollama-status")

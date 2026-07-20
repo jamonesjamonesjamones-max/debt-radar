@@ -1,32 +1,65 @@
 /**
- * OnboardingModal — Modal de bienvenida de 4 pasos para nuevos usuarios.
+ * OnboardingModal — Experiencia de 4 pasos visual y profesional.
  * Se muestra solo la primera vez (localStorage).
+ * Todos los iconos son SVG en lugar de emojis.
  */
 
 import { useState, useEffect } from "react";
+import { RadarIcon, FolderIcon, RocketIcon, SparklesIcon, LightbulbIcon, ArrowRightIcon } from "./ui/Icons";
 
 const STORAGE_KEY = "debtradar-onboarding";
 
 const STEPS = [
   {
-    title: "📡 Welcome to DebtRadar",
+    icon: RadarIcon,
+    title: "Welcome to DebtRadar",
+    subtitle: "Forensic Code Health Auditor",
     content:
-      "DebtRadar is a forensic code health auditor that analyzes your repository and tells you where the architectural problems are. It's 100% local — your code never leaves your machine.",
+      "DebtRadar analyzes your repository and quantifies technical debt — monolithic files, cyclomatic complexity, TODOs, and magic numbers. It's 100% local. Your code never leaves your machine.",
+    highlights: [
+      "Scans Python, JavaScript, TypeScript",
+      "100% local — no data sent externally",
+      "Visual dashboard with actionable insights",
+    ],
   },
   {
-    title: "📂 Paste Your Project Path",
+    icon: FolderIcon,
+    title: "Enter Your Project Path",
+    subtitle: "Where to point the scanner",
     content:
-      'In the top bar, paste the absolute path of your project. Examples:\n\n• C:\\Users\\you\\my-project (Windows)\n• ~/Documents/my-project (Mac/Linux)\n• /home/user/projects/my-app\n• /workspace (Docker)\n\nWhen running with Docker, the selected host folder is mounted read-only at /workspace, so enter /workspace here. You can also use relative paths like "." for the current directory when running locally.',
+      "Paste the absolute path to your project in the input field at the top.",
+    examples: [
+      { label: "Windows", value: "C:\\Users\\you\\my-project" },
+      { label: "Mac / Linux", value: "/home/user/projects/my-app" },
+      { label: "Docker", value: "/workspace" },
+    ],
+    note: "In Docker mode, the project folder is mounted read-only at /workspace. Use that path.",
   },
   {
-    title: "⚡ Adjust Parallelism",
+    icon: RocketIcon,
+    title: "Adjust Performance",
+    subtitle: "Parallel workers slider",
     content:
-      'Use the "Workers" slider to control how many files are analyzed in parallel:\n\n• 🐢 1 worker: Low CPU impact\n• ⚡ 4 workers: Balanced (recommended)\n• 🚀 8 workers: Maximum speed\n\nMore workers = faster, but uses more CPU.',
+      "Control how many files DebtRadar analyzes simultaneously. More workers = faster scan, more CPU usage.",
+    highlights: [
+      "1 worker — Minimal CPU impact",
+      "4 workers — Balanced (recommended)",
+      "8 workers — Maximum speed",
+    ],
   },
   {
-    title: "🚀 Start Scanning",
+    icon: SparklesIcon,
+    title: "Analyze & Act",
+    subtitle: "From scan to refactoring",
     content:
-      "Click 'Start Scan' and you will see:\n\n• ⏱️ A timer showing elapsed time\n• 📊 A real-time progress bar\n• 📁 The file currently being analyzed\n\nWhen done, you will see the Dashboard with the grade (A-F), a Heat Treemap, a Debt Radar, and the most problematic files table.",
+      "Click 'Start Scan' and watch real-time progress. When complete, the Dashboard shows you:",
+    highlights: [
+      "Overall grade (A–F) with score distribution",
+      "Heat treemap of file sizes and scores",
+      "Hall of Shame — worst offenders ranked",
+      "Git integration — blame and history",
+      "Optional AI refactor suggestions (Ollama)",
+    ],
   },
 ];
 
@@ -77,72 +110,122 @@ export default function OnboardingModal({ isOpen, onClose }) {
   };
 
   const current = STEPS[step];
+  const isLast = step === STEPS.length - 1;
+  const StepIcon = current.icon;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
       {/* Overlay */}
-      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
+      <div className="modal-backdrop" onClick={handleSkip} />
 
       {/* Modal */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="onboarding-title"
-        className="relative bg-surface-2 border border-surface-3 rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden"
-      >
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         {/* Progress bar */}
         <div className="flex h-1 bg-surface-3">
           {STEPS.map((_, i) => (
             <div
               key={i}
-              className={`flex-1 transition-colors duration-300 ${
-                i <= step ? "bg-accent" : "bg-surface-3"
+              className={`flex-1 transition-all duration-500 ease-out ${
+                i <= step
+                  ? "bg-accent"
+                  : "bg-surface-3"
               }`}
             />
           ))}
         </div>
 
-        {/* Content */}
-        <div className="p-8">
-          {/* Step indicator */}
-          <div className="text-xs text-text-muted mb-4">
+        {/* Step indicator */}
+        <div className="px-6 pt-4 flex items-center justify-between">
+          <span className="text-eyebrow text-text-muted">
             Step {step + 1} of {STEPS.length}
+          </span>
+          <span className="text-eyebrow text-text-muted">
+            {Math.round(((step + 1) / STEPS.length) * 100)}%
+          </span>
+        </div>
+
+        {/* Content */}
+        <div className="modal-body space-y-6">
+          {/* Icon + Title */}
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+              <StepIcon size={24} className="text-accent" />
+            </div>
+            <div>
+              <h2 id="onboarding-title" className="text-2xl font-bold text-text-primary">
+                {current.title}
+              </h2>
+              <p className="text-text-secondary text-sm mt-0.5">{current.subtitle}</p>
+            </div>
           </div>
 
-          {/* Title */}
-          <h2 id="onboarding-title" className="text-2xl font-bold text-text-primary mb-4">
-            {current.title}
-          </h2>
-
-          {/* Content */}
-          <div className="text-text-secondary text-sm leading-relaxed whitespace-pre-line min-h-[160px]">
+          {/* Description */}
+          <p className="text-text-secondary text-sm leading-relaxed">
             {current.content}
-          </div>
+          </p>
+
+          {/* Highlights list */}
+          {current.highlights && (
+            <ul className="space-y-2">
+              {current.highlights.map((h, i) => (
+                <li key={i} className="flex items-center gap-2 text-sm text-text-secondary">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                  {h}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* Examples */}
+          {current.examples && (
+            <div className="bg-surface-0/50 rounded-lg p-4 space-y-2">
+              {current.examples.map((ex, i) => (
+                <div key={i} className="flex items-center gap-3 text-xs">
+                  <span className="text-text-muted w-20 shrink-0">{ex.label}</span>
+                  <code className="font-mono text-text-primary bg-surface-3/50 px-2 py-1 rounded flex-1 break-all">
+                    {ex.value}
+                  </code>
+                </div>
+              ))}
+              {current.note && (
+                <p className="text-[11px] text-text-muted mt-2 leading-relaxed inline-flex items-center gap-1.5">
+                  <LightbulbIcon size={14} className="opacity-60 shrink-0" /> {current.note}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-between px-8 py-4 border-t border-surface-3">
+        <div className="modal-footer">
           <button
             onClick={handleSkip}
-            className="text-sm text-text-muted hover:text-text-secondary transition-colors"
+            className="btn-ghost btn-sm btn-magnetic"
           >
             Skip tutorial
           </button>
-
           <div className="flex items-center gap-3">
             {step > 0 && (
               <button
                 onClick={() => setStep(step - 1)}
-                className="px-4 py-2 rounded-md text-sm font-medium bg-surface-3 text-text-secondary hover:bg-surface-4 transition-colors"
+                className="btn-secondary btn-sm btn-magnetic"
               >
-                Previous
+                ← Back
               </button>
             )}
             <button
               onClick={handleNext}
-              className="px-6 py-2 rounded-md text-sm font-medium bg-accent text-white hover:bg-accent-hover transition-colors"
+              className="btn-primary btn-sm"
             >
-              {step === STEPS.length - 1 ? "🚀 Get Started" : "Next →"}
+              {isLast ? (
+                <span className="flex items-center gap-1.5">
+                  <SparklesIcon size={14} /> Get Started
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5">
+                  Continue <ArrowRightIcon size={14} />
+                </span>
+              )}
             </button>
           </div>
         </div>

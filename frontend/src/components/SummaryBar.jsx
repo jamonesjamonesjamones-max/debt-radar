@@ -1,25 +1,69 @@
 /**
- * SummaryBar — Métricas principales: grado, score, archivos, líneas, tiempo, violaciones.
+ * SummaryBar — Resumen ejecutivo rediseñado con hero grade, tendencia, métricas y acciones.
  */
 
-import { useState } from "react";
+import { useState, memo, useEffect } from "react";
 import { exportReport } from "../api/client";
+import { TrendUpIcon, TrendDownIcon, TrendStableIcon, LoadingIcon, DownloadIcon, TagIcon, CheckIcon } from "./ui/Icons";
 
-const GRADE_COLORS = {
-  A: "text-grade-a",
-  B: "text-grade-b",
-  C: "text-grade-c",
-  D: "text-grade-d",
-  F: "text-grade-f",
+const GRADE_LABELS = {
+  A: "Clean Code",
+  B: "Minor Debt",
+  C: "High Debt",
+  D: "Fragile Code",
+  F: "Biohazard",
 };
 
-export default function SummaryBar({ summary, jobId }) {
+const GRADE_DESCRIPTIONS = {
+  A: "Excellent code health. Minimal technical debt detected.",
+  B: "Good overall health. Some minor issues to address.",
+  C: "Moderate technical debt. Consider refactoring key files.",
+  D: "Significant debt present. Priority refactoring recommended.",
+  F: "Critical code health. Immediate action required.",
+};
+
+const TREND_CONFIG = {
+  improving: { icon: TrendUpIcon, label: "Trending up", color: "text-semantic-success" },
+  declining: { icon: TrendDownIcon, label: "Trending down", color: "text-semantic-error" },
+  stable: { icon: TrendStableIcon, label: "Stable", color: "text-text-muted" },
+};
+
+function AnimatedCounter({ value, duration = 0.6 }) {
+  const [display, setDisplay] = useState(0);
+  useEffect(() => {
+    const num = parseInt(String(value).replace(/[^0-9]/g, "")) || 0;
+    if (num === 0) { setDisplay(0); return; }
+    const startTime = performance.now();
+    const animate = (now) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / (duration * 1000), 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(0 + (num - 0) * eased));
+      if (progress < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+  }, [value, duration]);
+  const suffix = String(value).replace(/[0-9,.-]/g, "");
+  return <>{display.toLocaleString()}{suffix}</>;
+}
+
+const SummaryBar = memo(function SummaryBar({ summary, jobId, comparison }) {
   if (!summary) return null;
 
-  const gradeColor = GRADE_COLORS[summary.grade] || "text-text-primary";
-  const gradeLabel = summary.grade_label || "";
   const [exporting, setExporting] = useState(false);
   const [copiedBadge, setCopiedBadge] = useState(false);
+
+  const gradeColor = {
+    A: "text-grade-a",
+    B: "text-grade-b",
+    C: "text-grade-c",
+    D: "text-grade-d",
+    F: "text-grade-f",
+  }[summary.grade] || "text-text-primary";
+
+  const trend = comparison?.trend || null;
+  const trendConfig = TREND_CONFIG[trend] || null;
+  const TrendIcon = trendConfig?.icon || null;
 
   const handleExport = async () => {
     if (!jobId || exporting) return;
@@ -50,130 +94,166 @@ export default function SummaryBar({ summary, jobId }) {
   };
 
   return (
-    <div className="card px-6 py-5">
-      <div className="flex items-center justify-between flex-wrap gap-6">
-        {/* Grado — elemento visual principal */}
-        <div className="flex items-center gap-4">
-          <div
-            className={`text-5xl font-bold ${gradeColor} font-mono leading-none`}
-          >
-            {summary.grade}
+    <div className="card-premium overflow-hidden animate-card-enter" role="region" aria-label="Scan summary">
+      {/* Hero section */}
+      <div className="px-6 py-5 sm:px-8 sm:py-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+          {/* Grade hero */}
+          <div className="flex items-center gap-4 shrink-0">
+            <div
+              className={`text-display-lg font-bold font-display leading-none ${gradeColor}`}
+            >
+              {summary.grade}
+            </div>
+            <div>
+              <p className="text-base sm:text-lg font-semibold text-text-primary">
+                {GRADE_LABELS[summary.grade] || ""}
+              </p>
+              <p className="text-xs sm:text-sm text-text-muted mt-0.5 max-w-xs">
+                {GRADE_DESCRIPTIONS[summary.grade] || ""}
+              </p>
+              <p className="text-xs text-text-muted mt-1 font-mono">
+                Score: <span className="font-bold text-text-primary">{summary.average_score}</span>/100
+                {TrendIcon && (
+                  <span className={`ml-3 inline-flex items-center gap-1 ${trendConfig.color}`}>
+                    <TrendIcon size={16} />
+                    {trendConfig.label}
+                    {comparison && (
+                      <span className="ml-1 font-mono">
+                        ({comparison.score_diff > 0 ? "+" : ""}{comparison.score_diff})
+                      </span>
+                    )}
+                  </span>
+                )}
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-medium text-text-primary">
-              {gradeLabel}
-            </p>
-            <p className="text-xs text-text-muted">
-              Average score:{" "}
-              <span className="font-mono">{summary.average_score}</span>/100
-            </p>
+
+          {/* Metrics */}
+          <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
+            <MetricBox
+              label="Files"
+              value={<AnimatedCounter value={summary.total_files || 0} />}
+              sub={summary.files_skipped > 0 ? `${summary.files_skipped} skipped` : null}
+            />
+            <MetricBox
+              label="Lines of Code"
+              value={<AnimatedCounter value={summary.total_lines || 0} />}
+            />
+            <MetricBox
+              label="Issues Found"
+              value={<AnimatedCounter value={summary.total_violations || 0} />}
+              highlight={summary.total_violations > 0}
+            />
+            <MetricBox
+              label="Scan Time"
+              value={`${summary.scan_time_seconds?.toFixed(1) || 0}s`}
+              sub={`${summary.workers_used} workers`}
+            />
           </div>
-        </div>
 
-        {/* Métricas secundarias */}
-        <div className="flex items-center gap-8 flex-wrap">
-          <Metric
-            label="Files"
-            value={summary.total_files}
-            sub={summary.files_skipped > 0 ? `${summary.files_skipped} skipped` : null}
-          />
-          <Metric
-            label="Lines"
-            value={summary.total_lines?.toLocaleString() || "0"}
-          />
-          <Metric
-            label="Issues"
-            value={summary.total_violations || 0}
-          />
-          <Metric
-            label="Scan time"
-            value={`${summary.scan_time_seconds?.toFixed(1) || 0}s`}
-            sub={`${summary.workers_used} workers`}
-          />
-        </div>
-
-        {/* Botones de acción */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleExport}
-            disabled={exporting || !jobId}
-            className="px-3 py-1.5 rounded text-xs font-medium bg-surface-3 text-text-secondary hover:bg-surface-4 disabled:opacity-40 transition-colors"
-            title="Download a self-contained HTML report"
-          >
-            {exporting ? "⏳ Exporting…" : "📥 Export"}
-          </button>
-          <button
-            onClick={handleCopyBadge}
-            disabled={!jobId}
-            className="px-3 py-1.5 rounded text-xs font-medium bg-surface-3 text-text-secondary hover:bg-surface-4 disabled:opacity-40 transition-colors"
-            title="Copy a Markdown badge for your README"
-          >
-            {copiedBadge ? "✅ Copied!" : "🏷️ Badge"}
-          </button>
+          {/* Actions */}
+          <div className="flex items-center gap-2 shrink-0 self-stretch sm:self-center">
+            <button
+              onClick={handleExport}
+              disabled={exporting || !jobId}
+              className="btn-secondary btn-sm btn-magnetic"
+              title="Download a self-contained HTML report"
+              aria-busy={exporting}
+              aria-label={exporting ? "Exporting report..." : "Download HTML report"}
+            >
+              {exporting ? <LoadingIcon size={14} /> : <DownloadIcon size={14} />}
+              <span className="hidden sm:inline">{exporting ? "Exporting..." : "Export"}</span>
+            </button>
+            <button
+              onClick={handleCopyBadge}
+              disabled={!jobId}
+              className="btn-secondary btn-sm btn-magnetic"
+              title="Copy a Markdown badge for your README"
+              aria-label={copiedBadge ? "Badge copied to clipboard" : "Copy badge markdown for README"}
+            >
+              {copiedBadge ? <CheckIcon size={14} className="text-semantic-success" /> : <TagIcon size={14} />}
+              <span className="hidden sm:inline">{copiedBadge ? "Copied" : "Badge"}</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Distribución de grados */}
+      {/* Grade distribution bar */}
       {summary.grade_distribution && (
-        <div className="mt-4 pt-4 border-t border-surface-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-xs text-text-muted">Grade distribution:</span>
-            {["A", "B", "C", "D", "F"].map((g) => {
-              const count = summary.grade_distribution[g] || 0;
-              if (count === 0) return null;
-              return (
-                <span
-                  key={g}
-                  className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${GRADE_COLORS[g]} bg-surface-3/50`}
-                >
-                  {g}: {count}
-                </span>
-              );
-            })}
+        <div className="px-6 sm:px-8 py-3 bg-surface-0/30 border-t border-surface-3">
+          <div className="flex items-center gap-4 flex-wrap">
+            <span className="text-eyebrow text-text-muted">Grade distribution:</span>
+            <div className="flex items-center gap-1.5">
+              {["A", "B", "C", "D", "F"].map((g) => {
+                const count = summary.grade_distribution[g] || 0;
+                if (count === 0) return null;
+                return (
+                  <span key={g} className="badge-grade bg-surface-3 text-text-secondary">
+                    <span className={
+                      g === "A" ? "text-grade-a" :
+                      g === "B" ? "text-grade-b" :
+                      g === "C" ? "text-grade-c" :
+                      g === "D" ? "text-grade-d" :
+                      "text-grade-f"
+                    }>{g}</span>
+                    <span className="text-text-muted ml-0.5">{count}</span>
+                  </span>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Violaciones por tipo */}
+      {/* Violations by type */}
       {summary.violations_by_type &&
         Object.keys(summary.violations_by_type).length > 0 && (
-          <div className="mt-3 flex items-center gap-3 flex-wrap">
-            <span className="text-xs text-text-muted">Issues found:</span>
-            {Object.entries(summary.violations_by_type).map(([type, count]) => (
-              <ViolationChip key={type} type={type} count={count} />
-            ))}
+          <div className="px-6 sm:px-8 py-3 border-t border-surface-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-eyebrow text-text-muted">Issues by type:</span>
+              {Object.entries(summary.violations_by_type).map(([type, count]) => (
+                <span
+                  key={type}
+                  className={`badge ${
+                    type === "max_nesting"
+                      ? "bg-grade-f/15 text-grade-f"
+                      : type === "magic_number"
+                      ? "bg-grade-c/15 text-grade-c"
+                      : type === "todo"
+                      ? "bg-grade-b/15 text-grade-b"
+                      : "bg-surface-3 text-text-muted"
+                  }`}
+                >
+                  {type === "max_nesting"
+                    ? "Nesting"
+                    : type === "magic_number"
+                    ? "Magic #"
+                    : type === "todo"
+                    ? "TODOs"
+                    : type}
+                  : <span className="font-bold ml-0.5">{count}</span>
+                </span>
+              ))}
+            </div>
           </div>
         )}
     </div>
   );
-}
+});
 
-function Metric({ label, value, sub }) {
+const MetricBox = memo(function MetricBox({ label, value, sub, highlight }) {
   return (
-    <div className="text-center">
-      <p className="text-lg font-mono font-bold text-text-primary">{value}</p>
-      <p className="text-xs text-text-muted">{label}</p>
-      {sub && <p className="text-[10px] text-text-muted">{sub}</p>}
+    <div className="text-center sm:text-left">
+      <p className={`text-xl sm:text-2xl font-mono font-bold ${
+        highlight ? "text-semantic-warning" : "text-text-primary"
+      }`}>
+        {value}
+      </p>
+      <p className="text-caption text-text-muted">{label}</p>
+      {sub && <p className="text-[10px] text-text-muted mt-0.5">{sub}</p>}
     </div>
   );
-}
+});
 
-function ViolationChip({ type, count }) {
-  const labels = {
-    max_nesting: { label: "Nesting", color: "text-grade-f bg-grade-f/10" },
-    magic_number: { label: "Magic #", color: "text-grade-c bg-grade-c/10" },
-    todo: { label: "TODOs", color: "text-grade-b bg-grade-b/10" },
-  };
-  const info = labels[type] || {
-    label: type,
-    color: "text-text-secondary bg-surface-3",
-  };
-
-  return (
-    <span
-      className={`text-[11px] font-mono px-2 py-0.5 rounded ${info.color}`}
-    >
-      {info.label}: {count}
-    </span>
-  );
-}
+export default SummaryBar;

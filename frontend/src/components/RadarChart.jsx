@@ -1,7 +1,10 @@
 /**
- * RadarChart — Gráfico radar con 4 dimensiones: Complejidad, TODOs, Magic Numbers, Archivos Dios.
+ * RadarChart â€” GrÃ¡fico radar con 4 dimensiones normalizadas (0-100).
+ * Muestra Complejidad, TODOs, Magic Numbers y Archivos Dios.
  */
 
+import InfoTooltip from "./ui/InfoTooltip";
+import { useMemo } from "react";
 import {
   Radar,
   RadarChart as RechartRadar,
@@ -12,16 +15,11 @@ import {
   Tooltip,
 } from "recharts";
 
-/**
- * Calcula las 4 dimensiones normalizadas (0-100) a partir de los archivos.
- * Cada dimensión representa qué tan grave es el problema en el repo.
- */
 function computeDimensions(files) {
   if (!files?.length) return [];
 
   const total = files.length;
 
-  // 1. Complejidad: promedio de (100 - score) de deducciones de complejidad
   const complexityAvg =
     files.reduce((sum, f) => {
       const c = f.deductions?.complexity || 0;
@@ -29,7 +27,6 @@ function computeDimensions(files) {
     }, 0) / total;
   const complexity = Math.min(Math.round((complexityAvg / 30) * 100), 100);
 
-  // 2. TODOs: promedio de deducción de TODOs
   const todosAvg =
     files.reduce((sum, f) => {
       const t = f.deductions?.todos || 0;
@@ -37,7 +34,6 @@ function computeDimensions(files) {
     }, 0) / total;
   const todos = Math.min(Math.round((todosAvg / 20) * 100), 100);
 
-  // 3. Magic Numbers: promedio de deducción de magic numbers
   const magicAvg =
     files.reduce((sum, f) => {
       const m = f.deductions?.magic_numbers || 0;
@@ -45,7 +41,6 @@ function computeDimensions(files) {
     }, 0) / total;
   const magicNumbers = Math.min(Math.round((magicAvg / 25) * 100), 100);
 
-  // 4. Archivos Dios: % de archivos con >500 líneas
   const godFiles = files.filter((f) => f.lines > 500).length;
   const godRatio = Math.round((godFiles / total) * 100);
 
@@ -57,50 +52,71 @@ function computeDimensions(files) {
   ];
 }
 
+const METRIC_DESCRIPTIONS = {
+  Complexity: "Cyclomatic complexity and nesting depth",
+  TODOs: "Accumulated TODOs, FIXMEs and HACKs",
+  "Magic Numbers": "Hard-coded literals without context",
+  "God Files": "Files exceeding 500 lines",
+};
+
 function CustomTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const d = payload[0]?.payload;
   if (!d) return null;
 
   return (
-    <div className="bg-surface-1 border border-surface-3 rounded-md px-3 py-2 shadow-lg text-xs">
-      <p className="text-text-primary font-medium">{d.dimension}</p>
-      <p className="font-mono text-accent font-bold">{d.value}/100</p>
+    <div className="tooltip-content max-w-[200px]">
+      <p className="text-text-primary font-medium text-xs">{d.dimension}</p>
+      <p className="text-text-muted text-[10px] pt-0.5">{METRIC_DESCRIPTIONS[d.dimension] || ""}</p>
+      <p className="font-mono text-accent font-bold text-xs pt-1">
+        {d.value}/100
+      </p>
     </div>
   );
 }
 
 export default function RadarChartComponent({ files }) {
-  const radarData = computeDimensions(files);
+  const radarData = useMemo(() => computeDimensions(files), [files]);
 
-  if (!radarData.length) return null;
+  if (!radarData.length) {
+    return (
+      <div className="card-premium p-5 h-full flex flex-col">
+        <h3 className="section-header mb-1 flex items-center gap-1.5">Debt Radar <InfoTooltip text="Four dimensions of technical debt measured from 0–100. Lower is better. Complex code, accumulated TODOs, magic numbers, and oversized files all hurt maintainability." side="bottom" /></h3>
+        <p className="text-text-muted text-xs">No data available.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="card p-5 h-full flex flex-col">
-      <h3 className="text-sm font-medium text-text-secondary mb-4">
-        Technical Debt Radar
-      </h3>
+    <div className="card-premium p-5 h-full flex flex-col">
+      <h3 className="section-header mb-1 flex items-center gap-1.5">Debt Radar <InfoTooltip text="Four dimensions of technical debt measured from 0–100. Lower is better. Complex code, accumulated TODOs, magic numbers, and oversized files all hurt maintainability." side="bottom" /></h3>
+      <p className="text-caption text-text-muted mb-4">
+        {radarData.length} dimensions measured
+      </p>
       <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%">
           <RechartRadar data={radarData} cx="50%" cy="50%" outerRadius="70%">
-            <PolarGrid stroke="#2a2a32" />
+            <PolarGrid stroke="#2a2a32" strokeOpacity={0.6} />
             <PolarAngleAxis
               dataKey="dimension"
-              tick={{ fill: "#a1a1aa", fontSize: 11 }}
+              tick={{ fill: "#a1a1aa", fontSize: 10 }}
+              tickLine={false}
             />
             <PolarRadiusAxis
               angle={90}
               domain={[0, 100]}
-              tick={{ fill: "#71717a", fontSize: 9 }}
+              tick={{ fill: "#71717a", fontSize: 8 }}
               axisLine={false}
+              tickCount={4}
             />
             <Radar
               dataKey="value"
               stroke="#6366f1"
               fill="#6366f1"
-              fillOpacity={0.25}
+              fillOpacity={0.2}
               strokeWidth={2}
               animationDuration={500}
+              activeDot={{ r: 4, fill: "#818cf8" }}
             />
             <Tooltip content={<CustomTooltip />} />
           </RechartRadar>

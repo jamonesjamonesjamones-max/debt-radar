@@ -88,6 +88,10 @@ export function useAnalysis() {
                 } else {
                   setData(payload.result);
                   setState("done");
+                  // Cache result in IndexedDB for offline access
+                  import("../hooks/useIndexedDB").then(function(m) {
+                    m.cacheScanResult(job_id, payload.result);
+                  }).catch(function(){});
                 }
               } else {
                 setState("empty");

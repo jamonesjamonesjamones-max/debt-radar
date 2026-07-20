@@ -1,10 +1,12 @@
 /**
- * ScanHistory — Muestra el historial de escaneos con gráfico de evolución.
+ * ScanHistory — Historial de escaneos con gráfico de evolución y banner de comparación.
+ * Usa iconos SVG para indicadores de tendencia y chart.
  */
 
 import { useState, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { API_BASE } from "../api/client";
+import { ChartIcon, TrendUpIcon, TrendDownIcon, TrendStableIcon } from "./ui/Icons";
 
 function formatDate(dateStr) {
   try {
@@ -21,15 +23,22 @@ function CustomTooltip({ active, payload }) {
   if (!d) return null;
 
   return (
-    <div className="bg-surface-1 border border-surface-3 rounded-md px-3 py-2 shadow-lg text-xs space-y-1">
-      <p className="font-mono text-text-primary">{formatDate(d.created_at)}</p>
-      <p className="text-text-secondary">
+    <div className="tooltip-content">
+      <p className="font-mono text-text-primary text-xs">{formatDate(d.created_at)}</p>
+      <p className="text-text-secondary text-xs">
         Score: <span className="font-mono font-bold">{d.score}</span> ({d.grade})
       </p>
-      <p className="text-text-muted">{d.total_violations} issues</p>
+      <p className="text-text-muted text-[10px]">{d.total_violations} issues</p>
     </div>
   );
 }
+
+const GRADE_LINES = [
+  { y: 90, color: "#22c55e", label: "A" },
+  { y: 75, color: "#84cc16", label: "B" },
+  { y: 60, color: "#f59e0b", label: "C" },
+  { y: 40, color: "#f97316", label: "D" },
+];
 
 export default function ScanHistory({ path, comparison }) {
   const [history, setHistory] = useState([]);
@@ -46,88 +55,126 @@ export default function ScanHistory({ path, comparison }) {
       .finally(() => setLoading(false));
   }, [path]);
 
-  // Solo mostrar si hay >= 2 escaneos
-  if (loading || history.length < 2) return null;
+  if (loading) return null;
 
   const data = [...history].reverse();
+  const showChart = data.length >= 2;
+
+  // Trend icon config
+  const trendIconMap = {
+    improving: { icon: TrendUpIcon, color: "text-semantic-success" },
+    declining: { icon: TrendDownIcon, color: "text-semantic-error" },
+    stable: { icon: TrendStableIcon, color: "text-text-muted" },
+  };
+  const TrendIcon = comparison ? trendIconMap[comparison.trend]?.icon : null;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 animate-fade-in">
       {/* Banner de comparación */}
       {comparison && (
         <div
-          className={`card px-4 py-3 flex items-center gap-3 ${
+          className={`card px-5 py-4 flex items-center gap-4 ${
             comparison.trend === "improving"
-              ? "border-grade-a/30"
+              ? "border-l-2 border-l-semantic-success"
               : comparison.trend === "declining"
-              ? "border-grade-f/30"
-              : ""
+              ? "border-l-2 border-l-semantic-error"
+              : "border-l-2 border-l-text-muted"
           }`}
+          role="status"
+          aria-label={`Trend: ${comparison.trend}. Score changed by ${comparison.score_diff} points.`}
         >
-          <span className="text-lg">
-            {comparison.trend === "improving"
-              ? "📈"
-              : comparison.trend === "declining"
-              ? "📉"
-              : "➡️"}
-          </span>
+          {TrendIcon && (
+            <span className={`${trendIconMap[comparison.trend]?.color || "text-text-muted"}`} aria-hidden="true">
+              <TrendIcon size={24} />
+            </span>
+          )}
           <div className="flex-1">
-            <p className="text-sm text-text-primary">
-              {comparison.trend === "improving"
-                ? "Improving!"
-                : comparison.trend === "declining"
-                ? "Declining"
-                : "No change"}
-            </p>
-            <p className="text-xs text-text-muted">
-              {comparison.score_diff > 0 ? "+" : ""}
-              {comparison.score_diff} points since last scan
-              {comparison.violations_diff !== 0 && (
-                <span>
-                  {" "}
-                  · {comparison.violations_diff > 0 ? "+" : ""}
-                  {comparison.violations_diff} issues
-                </span>
-              )}
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium text-text-primary">
+                {comparison.trend === "improving"
+                  ? "Improving"
+                  : comparison.trend === "declining"
+                  ? "Declining"
+                  : "Stable"}
+              </p>
+              <span className={`text-xs font-mono font-bold ${
+                comparison.score_diff > 0 ? "text-semantic-success" : comparison.score_diff < 0 ? "text-semantic-error" : "text-text-muted"
+              }`}>
+                {comparison.score_diff > 0 ? "+" : ""}{comparison.score_diff} pts
+              </span>
+            </div>
+            <p className="text-xs text-text-muted mt-0.5">
+              {comparison.violations_diff > 0
+                ? `${comparison.violations_diff} more issues`
+                : comparison.violations_diff < 0
+                ? `${Math.abs(comparison.violations_diff)} fewer issues`
+                : "Same number of issues"}{" "}
+              vs last scan
             </p>
           </div>
-          <span className="text-xs text-text-muted font-mono">
-            Last: {comparison.last_scan.grade} ({comparison.last_scan.score})
+          <span className="text-xs text-text-muted font-mono shrink-0">
+            Last: {comparison.last_scan?.grade} ({comparison.last_scan?.score})
           </span>
         </div>
       )}
 
       {/* Gráfico de historial */}
-      <div className="card p-5">
-        <h3 className="text-sm font-medium text-text-secondary mb-4">
-          📊 Scan History ({history.length})
-        </h3>
-        <div className="h-48">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data}>
-              <XAxis
-                dataKey="created_at"
-                tickFormatter={formatDate}
-                tick={{ fill: "#a1a1aa", fontSize: 10 }}
-              />
-              <YAxis domain={[0, 100]} tick={{ fill: "#71717a", fontSize: 10 }} />
-              <Tooltip content={<CustomTooltip />} />
-              <ReferenceLine y={90} stroke="#22c55e" strokeDasharray="3 3" strokeOpacity={0.2} />
-              <ReferenceLine y={75} stroke="#84cc16" strokeDasharray="3 3" strokeOpacity={0.2} />
-              <ReferenceLine y={60} stroke="#f59e0b" strokeDasharray="3 3" strokeOpacity={0.2} />
-              <ReferenceLine y={40} stroke="#f97316" strokeDasharray="3 3" strokeOpacity={0.2} />
-              <Line
-                type="monotone"
-                dataKey="score"
-                stroke="#6366f1"
-                strokeWidth={2}
-                dot={{ fill: "#6366f1", r: 3 }}
-                activeDot={{ r: 5 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+      {showChart && (
+        <div className="card-premium p-5 animate-fade-in" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
+          <div className="flex items-center gap-2 mb-4">
+            <ChartIcon size={16} className="text-text-muted" />
+            <h3 className="section-header">
+              Score History ({history.length} scans)
+            </h3>
+          </div>
+          <div className="h-52">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data}>
+                <XAxis
+                  dataKey="created_at"
+                  tickFormatter={formatDate}
+                  tick={{ fill: "#71717a", fontSize: 10 }}
+                  axisLine={{ stroke: "#222228" }}
+                  tickLine={false}
+                />
+                <YAxis
+                  domain={[0, 100]}
+                  tick={{ fill: "#71717a", fontSize: 10 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                {GRADE_LINES.map(({ y, color }) => (
+                  <ReferenceLine
+                    key={y}
+                    y={y}
+                    stroke={color}
+                    strokeDasharray="3 3"
+                    strokeOpacity={0.2}
+                  />
+                ))}
+                <Line
+                  type="monotone"
+                  dataKey="score"
+                  stroke="#6366f1"
+                  strokeWidth={2}
+                  dot={{ fill: "#6366f1", r: 3, strokeWidth: 0 }}
+                  activeDot={{ r: 5, fill: "#818cf8" }}
+                  animationDuration={500}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          {/* Grade legend */}
+          <div className="mt-3 flex items-center gap-4 text-[10px] text-text-muted">
+            <span className="flex items-center gap-1"><span className="w-2 h-0.5 rounded bg-grade-a/40" /> A (90+)</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-0.5 rounded bg-grade-b/40" /> B (75+)</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-0.5 rounded bg-grade-c/40" /> C (60+)</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-0.5 rounded bg-grade-d/40" /> D (40+)</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-0.5 rounded bg-grade-f/40" /> F (&lt;40)</span>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

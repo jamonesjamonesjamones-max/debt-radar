@@ -19,6 +19,9 @@
     background: #2a2a32;
     border-radius: 3px;
   }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #363640;
+  }
 
   ::selection {
     background: rgba(99, 102, 241, 0.3);
@@ -29,7 +32,46 @@
   :focus-visible {
     outline: 2px solid #6366f1;
     outline-offset: 2px;
-    border-radius: 2px;
+    border-radius: 4px;
+  }
+
+  /* Smooth scrolling pero respetando prefers-reduced-motion */
+  html {
+    scroll-behavior: smooth;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    @apply bg-surface-0 text-text-primary antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Skip link accesible - visible solo al recibir foco */
+  .skip-link {
+    position: absolute;
+    top: -100%;
+    left: 0;
+    z-index: 9999;
+    padding: 8px 16px;
+    background: #6366f1;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 0 0 8px 0;
+    transition: top 0.2s ease;
+  }
+  .skip-link:focus {
+    top: 0;
+    outline: none;
   }
 }
 
@@ -45,10 +87,252 @@
     white-space: nowrap;
     border-width: 0;
   }
+
+  /* Animated score counter */
+  .animate-score {
+    animation: scoreIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes scoreIn {
+    0% { opacity: 0; transform: scale(0.5); }
+    60% { transform: scale(1.1); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  
+  /* Smooth interactive */
+  .smooth-transition {
+    transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .card-content-enter {
+    animation: cardContentFadeIn 0.3s ease-out;
+  }
+  @keyframes cardContentFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Animaciones respetuosas */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+  .animate-slide-up {
+    animation: slideUp 0.35s ease-out;
+  }
+  .animate-scale-in {
+    animation: scaleIn 0.25s ease-out;
+  }
+  .animate-shimmer {
+    background: linear-gradient(90deg, transparent 25%, rgba(99,102,241,0.08) 50%, transparent 75%);
+    background-size: 200% 100%;
+    animation: shimmer 2s ease-in-out infinite;
+  }
+
+  /* Glass morphism overlay ligero */
+  .glass-overlay {
+    @apply bg-black/60 backdrop-blur-sm;
+  }
+
+  /* Shimmer loading placeholder */
+  .shimmer-block {
+    @apply rounded-md bg-surface-3;
+    background: linear-gradient(90deg, #18181c 25%, #222228 50%, #18181c 75%);
+    background-size: 200% 100%;
+    animation: shimmer 2s ease-in-out infinite;
+  }
+
+  /* Transición suave para todos los elementos interactivos */
+  .interactive-transition {
+    @apply transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)];
+  }
+
+  /* Magnetic hover: subtle scale + lift for buttons */
+  .btn-magnetic {
+    @apply interactive-transition;
+  }
+  .btn-magnetic:hover {
+    transform: translateY(-1px);
+  }
+  .btn-magnetic:active {
+    transform: scale(0.97);
+  }
+
+  /* Card hover lift effect */
+  .card-lift {
+    @apply interactive-transition;
+  }
+  .card-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.2);
+  }
+
+
 }
 
 @layer components {
+  /* ─── Card base (Double-Bezel) ─── */
+  .card-outer {
+    @apply p-[1.5px] rounded-[10px];
+    background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(99,102,241,0.03), rgba(162,162,180,0.06));
+  }
   .card {
-    @apply bg-surface-2 border border-surface-3 rounded-lg;
+    @apply bg-surface-2 border border-surface-3 rounded-[8px] shadow-card;
+  }
+  .card-hover {
+    @apply card interactive-transition;
+  }
+  .card-hover:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.2);
+    border-color: #363640;
+    transform: translateY(-2px);
+  }
+  .card-elevated {
+    @apply bg-surface-2 border border-surface-4 rounded-[8px] shadow-modal;
+  }
+  .card-premium {
+    @apply bg-surface-2 rounded-[8px] shadow-modal;
+    border: 1px solid rgba(99,102,241,0.08);
+    position: relative;
+  }
+  .card-premium::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 9px;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(99,102,241,0.15), transparent 40%, rgba(162,162,180,0.05));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* ─── Botones ─── */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md
+           text-sm font-medium interactive-transition
+           focus-visible:outline-2 focus-visible:outline-accent
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-white hover:bg-accent-hover active:bg-accent-muted;
+  }
+  .btn-secondary {
+    @apply btn bg-surface-3 text-text-secondary hover:bg-surface-4 hover:text-text-primary active:bg-surface-5;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-text-muted hover:bg-surface-3 hover:text-text-secondary;
+  }
+  .btn-danger {
+    @apply btn bg-semantic-error-bg text-semantic-error hover:bg-semantic-error/20;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+
+  /* ─── Badge / Status Pill ─── */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-pill text-[11px] font-medium font-mono leading-none;
+  }
+  .badge-grade {
+    @apply badge font-bold;
+  }
+  .badge-a {
+    @apply badge-grade bg-grade-a-bg text-grade-a;
+  }
+  .badge-b {
+    @apply badge-grade bg-grade-b-bg text-grade-b;
+  }
+  .badge-c {
+    @apply badge-grade bg-grade-c-bg text-grade-c;
+  }
+  .badge-d {
+    @apply badge-grade bg-grade-d-bg text-grade-d;
+  }
+  .badge-f {
+    @apply badge-grade bg-grade-f-bg text-grade-f;
+  }
+
+  /* Severity pills */
+  .pill-high {
+    @apply badge bg-semantic-error-bg text-semantic-error;
+  }
+  .pill-medium {
+    @apply badge bg-semantic-warning-bg text-semantic-warning;
+  }
+  .pill-low {
+    @apply badge bg-semantic-info-bg text-semantic-info;
+  }
+
+  /* ─── Input ─── */
+  .input {
+    @apply w-full bg-surface-2 border border-surface-3 rounded-md px-4 py-2.5
+           text-sm text-text-primary placeholder:text-text-muted font-mono
+           interactive-transition
+           focus:border-accent focus:ring-1 focus:ring-accent/30
+           disabled:opacity-50;
+  }
+
+  /* ─── Section Header ─── */
+  .section-header {
+    @apply text-sm font-medium text-text-secondary;
+  }
+  .section-header-with-action {
+    @apply flex items-center justify-between;
+  }
+
+  /* ─── Tooltip personalizado ─── */
+  .tooltip-content {
+    @apply bg-surface-1 border border-surface-3 rounded-md px-3 py-2 shadow-dropdown text-xs space-y-1;
+  }
+
+  /* ─── Empty State ─── */
+  .empty-state {
+    @apply max-w-lg mx-auto px-6 py-32 text-center space-y-4;
+  }
+  .empty-state-icon {
+    @apply text-5xl mb-2;
+  }
+  .empty-state-title {
+    @apply text-xl font-semibold text-text-primary;
+  }
+  .empty-state-description {
+    @apply text-text-secondary text-sm leading-relaxed;
+  }
+  .empty-state-hint {
+    @apply text-text-muted text-xs;
+  }
+
+  /* ─── Tabla ─── */
+  .table-header {
+    @apply text-eyebrow text-text-muted uppercase tracking-wider;
+  }
+  .table-cell {
+    @apply px-5 py-3;
+  }
+
+  /* ─── Modal ─── */
+  .modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center p-4;
+  }
+  .modal-backdrop {
+    @apply absolute inset-0 glass-overlay;
+  }
+  .modal-content {
+    @apply relative bg-surface-2 border border-surface-4 rounded-card shadow-modal
+           w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden
+           animate-scale-in;
+  }
+  .modal-header {
+    @apply flex items-center justify-between px-6 py-4 border-b border-surface-3;
+  }
+  .modal-body {
+    @apply flex-1 overflow-auto p-6;
+  }
+  .modal-footer {
+    @apply flex items-center justify-between px-6 py-4 border-t border-surface-3;
   }
 }

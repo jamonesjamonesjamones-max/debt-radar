@@ -164,3 +164,35 @@ def compare_with_last(current_summary: dict, path: str) -> Optional[dict]:
         "violations_diff": violations_diff,
         "trend": "improving" if score_diff > 0 else "declining" if score_diff < 0 else "stable",
     }
+
+
+def get_all_latest_scans() -> list[dict]:
+    """
+    Get the most recent scan for each unique path.
+    Returns list of {path, grade, score, total_files, total_violations, created_at}.
+    """
+    init_db()
+    conn = _get_connection()
+    try:
+        rows = conn.execute("""
+            SELECT s1.* FROM scans s1
+            INNER JOIN (
+                SELECT path, MAX(created_at) as max_date
+                FROM scans
+                GROUP BY path
+            ) s2 ON s1.path = s2.path AND s1.created_at = s2.max_date
+            ORDER BY s1.score ASC
+        """).fetchall()
+        results = []
+        for row in rows:
+            results.append({
+                "path": row["path"],
+                "grade": row["grade"],
+                "score": row["score"],
+                "total_files": row["total_files"],
+                "total_violations": row["total_violations"],
+                "created_at": row["created_at"],
+            })
+        return results
+    finally:
+        conn.close()

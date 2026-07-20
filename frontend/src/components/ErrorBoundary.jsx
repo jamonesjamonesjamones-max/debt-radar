@@ -9,6 +9,7 @@
  */
 
 import { Component } from "react";
+import { BoomIcon } from "./ui/Icons";
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -33,22 +34,30 @@ export default class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="max-w-lg mx-auto px-6 py-32 text-center space-y-4">
-          <div className="text-5xl">💥</div>
+        <div className="max-w-lg mx-auto px-6 py-32 text-center space-y-6 animate-fade-in" role="alert">
+          <div className="flex justify-center">
+            <BoomIcon size={56} className="text-semantic-error" />
+          </div>
           <h2 className="text-xl font-semibold text-text-primary">
             Something went wrong rendering the results
           </h2>
-          <p className="text-text-secondary text-sm font-mono bg-surface-2 border border-surface-3 rounded-md px-4 py-3 text-left break-all">
-            {this.state.error?.message || String(this.state.error)}
+          <p className="text-text-secondary text-sm leading-relaxed">
+            This is usually caused by a very large repository or an unexpected data
+            shape. You can try scanning a smaller subfolder.
           </p>
-          <p className="text-text-muted text-xs">
-            This is usually caused by a very large repository or an unexpected
-            data shape. Try scanning a smaller subfolder.
-          </p>
+          {this.state.error && (
+            <details className="text-left">
+              <summary className="text-xs text-text-muted cursor-pointer hover:text-text-secondary interactive-transition text-center">
+                View error details
+              </summary>
+              <pre className="mt-2 text-xs font-mono text-text-muted bg-surface-0/50 rounded-md px-4 py-3 text-left break-all whitespace-pre-wrap max-h-32 overflow-y-auto">
+                {this.state.error?.message || String(this.state.error)}
+              </pre>
+            </details>
+          )}
           <button
             onClick={this.handleReset}
-            className="px-5 py-2.5 rounded-md text-sm font-medium
-                       bg-accent text-white hover:bg-accent-hover transition-colors"
+            className="btn-primary btn-magnetic"
           >
             Back to start
           </button>

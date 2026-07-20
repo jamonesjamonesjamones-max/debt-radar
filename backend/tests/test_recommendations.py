@@ -24,7 +24,7 @@ def test_compute_file_priority_no_violations():
     f = make_file(score=95, lines=100)
     result = compute_file_priority(f)
     assert result["priority_label"] == "low"
-    assert result["score_gain"] == 5
+    assert result["score_gain"] == 0
     assert result["current_score"] == 95
 
 

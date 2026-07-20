@@ -58,7 +58,7 @@ export default function PortfolioDashboard({ onSelectPath }) {
     );
   }
 
-  var projects = [...data.projects];
+  const projects = [...data.projects];
 
   if (sortBy === "score") {
     projects.sort(function(a, b) { return a.score - b.score; });
@@ -68,7 +68,7 @@ export default function PortfolioDashboard({ onSelectPath }) {
     projects.sort(function(a, b) { return b.created_at.localeCompare(a.created_at); });
   }
 
-  var headerStyle = "px-3 py-2 text-[10px] font-medium text-text-muted uppercase tracking-wider cursor-pointer hover:text-text-secondary interactive-transition";
+  const headerStyle = "px-3 py-2 text-[10px] font-medium text-text-muted uppercase tracking-wider cursor-pointer hover:text-text-secondary interactive-transition";
 
   return (
     <div className="card-premium overflow-hidden animate-card-enter">

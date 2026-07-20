@@ -4,7 +4,7 @@
  * Todos los iconos son SVG en lugar de emojis.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { RadarIcon, FolderIcon, RocketIcon, SparklesIcon, LightbulbIcon, ArrowRightIcon } from "./ui/Icons";
 
 const STORAGE_KEY = "debtradar-onboarding";
@@ -65,17 +65,31 @@ const STEPS = [
 
 export default function OnboardingModal({ isOpen, onClose }) {
   const [step, setStep] = useState(0);
+  const prevOpen = useRef(isOpen);
 
-  useEffect(() => {
-    // Si ya vio el onboarding, no mostrar
-    if (typeof window !== "undefined") {
-      const seen = localStorage.getItem(STORAGE_KEY);
-      if (seen) {
-        onClose();
-      }
+  // Define functions BEFORE effects that reference them (TDZ prevention)
+  const handleFinish = () => {
+    try {
+      localStorage.setItem(STORAGE_KEY, "true");
+    } catch {
+      // localStorage no disponible
     }
-  }, [onClose]);
+    onClose();
+  };
 
+  const handleSkip = () => {
+    handleFinish();
+  };
+
+  const handleNext = () => {
+    if (step < STEPS.length - 1) {
+      setStep(step + 1);
+    } else {
+      handleFinish();
+    }
+  };
+
+  // Escape key handler
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e) => {
@@ -86,28 +100,16 @@ export default function OnboardingModal({ isOpen, onClose }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
+  // Reset step each time modal opens (transition from false to true)
+  useEffect(() => {
+    if (isOpen && !prevOpen.current) {
+      setStep(0);
+    }
+    prevOpen.current = isOpen;
+  }, [isOpen]);
+
+  // ALL hooks must come before early returns. This must stay.
   if (!isOpen) return null;
-
-  const handleNext = () => {
-    if (step < STEPS.length - 1) {
-      setStep(step + 1);
-    } else {
-      handleFinish();
-    }
-  };
-
-  const handleSkip = () => {
-    handleFinish();
-  };
-
-  const handleFinish = () => {
-    try {
-      localStorage.setItem(STORAGE_KEY, "true");
-    } catch {
-      // localStorage no disponible
-    }
-    onClose();
-  };
 
   const current = STEPS[step];
   const isLast = step === STEPS.length - 1;

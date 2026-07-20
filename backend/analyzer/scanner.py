@@ -162,7 +162,7 @@ def discover_files(root_path: str) -> tuple[list[str], list[dict]]:
             for d in dirnames
             if d not in ALWAYS_IGNORE
             and not d.startswith(".")
-            and (spec is None or not spec.match_file(os.path.join(dirpath, d)))
+            and (spec is None or not spec.match_file(os.path.relpath(os.path.join(dirpath, d), root_path)))
         ]
 
         for filename in filenames:
@@ -190,8 +190,8 @@ def discover_files(root_path: str) -> tuple[list[str], list[dict]]:
                 skipped.append({"path": filepath, "reason": "Archivo sensible (credenciales/keys)"})
                 continue
 
-            # Verificar .gitignore
-            if spec and spec.match_file(filepath):
+            # Verificar .gitignore (con ruta relativa, que es lo que espera pathspec)
+            if spec and spec.match_file(os.path.relpath(filepath, root_path)):
                 skipped.append({"path": filepath, "reason": "Ignorado por .gitignore"})
                 continue
 

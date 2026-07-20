@@ -3,7 +3,7 @@
  */
 
 import { useState, useRef, useCallback } from "react";
-import { startScan, createScanStream } from "../api/client";
+import { startScan, createScanStream, uploadFile } from "../api/client";
 
 /**
  * Estados posibles:
@@ -116,14 +116,14 @@ export function useAnalysis() {
           // Solo marcar error si seguimos en scanning (no fue un cierre limpio)
           setState((prev) => {
             if (prev === "scanning") {
-              setError(
-                "The scan started, but the progress stream could not connect. " +
-                "Make sure the backend is running on port 8000 and retry."
-              );
               return "error";
             }
             return prev;
           });
+          setError(
+            "The scan started, but the progress stream could not connect. " +
+            "Make sure the backend is running on port 8000 and retry."
+          );
         };
       } catch (err) {
         // Detectar errores específicos del backend
@@ -140,6 +140,106 @@ export function useAnalysis() {
     [reset]
   );
 
+  const startUpload = useCallback(async (file) => {
+    reset();
+    setState("uploading");
+
+    try {
+      setProgress({
+        percent: 0,
+        elapsed: 0,
+        currentFile: file.name,
+        filesCompleted: 0,
+        totalFiles: 1,
+      });
+
+      const onProgress = (pct) => {
+        setProgress({
+          percent: Math.round(pct * 90),
+          elapsed: 0,
+          currentFile: file.name,
+          filesCompleted: pct > 0.5 ? 1 : 0,
+          totalFiles: 1,
+        });
+      };
+
+      const result = await uploadFile(file, onProgress);
+
+      // Transformar resultado individual al formato del Dashboard
+      const singleFileData = {
+        summary: {
+          grade: result.score >= 90 ? "A" : result.score >= 75 ? "B" : result.score >= 60 ? "C" : result.score >= 40 ? "D" : "F",
+          average_score: result.score,
+          total_files: 1,
+          total_lines: result.lines,
+          total_violations: result.violations?.length || 0,
+          scan_time_seconds: 0.5,
+          workers_used: 1,
+          files_skipped: 0,
+          grade_distribution: { A: 0, B: 0, C: 0, D: 0, F: 0 },
+          violations_by_type: {},
+          scan_path: file.name,
+        },
+        files: [{
+          path: result.filename,
+          score: result.score,
+          lines: result.lines,
+          language: result.language,
+          deductions: result.deductions,
+          violations: result.violations || [],
+        }],
+        skipped_files: [],
+      };
+
+      // Calculate grade distribution
+      const g = singleFileData.summary.grade;
+      singleFileData.summary.grade_distribution[g] = 1;
+
+      // Calculate violations by type
+      if (result.violations) {
+        for (const v of result.violations) {
+          singleFileData.summary.violations_by_type[v.type] =
+            (singleFileData.summary.violations_by_type[v.type] || 0) + 1;
+        }
+      }
+
+      setProgress({
+        percent: 100,
+        elapsed: 0.5,
+        currentFile: "",
+        filesCompleted: 1,
+        totalFiles: 1,
+      });
+
+      setData(singleFileData);
+      setJobId("upload-" + Date.now());
+      setState("done");
+
+    } catch (err) {
+      setError(err.message);
+      setState("error");
+    }
+  }, [reset]);
+
+  const loadDemo = useCallback(() => {
+    // Lazy-import sample data and inject it as if a scan completed
+    import("../utils/sampleData").then(function(m) {
+      setData(m.SAMPLE_DATA);
+      setJobId(m.SAMPLE_JOB_ID);
+      setState("done");
+      setProgress({
+        percent: 100,
+        elapsed: 3.2,
+        currentFile: "",
+        filesCompleted: m.SAMPLE_DATA.summary.total_files,
+        totalFiles: m.SAMPLE_DATA.summary.total_files,
+      });
+    }).catch(function() {
+      setError("Failed to load sample data");
+      setState("error");
+    });
+  }, []);
+
   return {
     state,
     data,
@@ -148,6 +248,8 @@ export function useAnalysis() {
     errorStatus,
     jobId,
     startScan: startScanFlow,
+    loadDemo,
+    startUpload,
     reset,
   };
 }

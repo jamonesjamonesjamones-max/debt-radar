@@ -16,17 +16,47 @@ def compute_file_diff(current_file: dict, previous_file: dict) -> dict:
     previous_score = previous_file.get("score", 0) if previous_file else 0
     score_change = current_score - previous_score
 
-    current_violations = {v.get("type", ""): v for v in current_file.get("violations", [])}
-    previous_violations = {v.get("type", ""): v for v in previous_file.get("violations", [])} if previous_file else {}
+    current_violations_list: list[dict] = current_file.get("violations", [])
+    previous_violations_list: list[dict] = previous_file.get("violations", []) if previous_file else []
 
-    current_types = set(current_violations.keys())
-    previous_types = set(previous_violations.keys())
+    # Contar violaciones por tipo en ambos escaneos
+    def _count_by_type(violations: list[dict]) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for v in violations:
+            vtype = v.get("type", "")
+            counts[vtype] = counts.get(vtype, 0) + 1
+        return counts
 
-    types_added = current_types - previous_types
-    types_removed = previous_types - current_types
+    current_counts = _count_by_type(current_violations_list)
+    previous_counts = _count_by_type(previous_violations_list) if previous_file else {}
 
-    violations_added = [{"type": t, "line": current_violations[t].get("line", 0), "severity": current_violations[t].get("severity", "low")} for t in types_added]
-    violations_removed = [{"type": t, "line": previous_violations[t].get("line", 0), "severity": previous_violations[t].get("severity", "low")} for t in types_removed]
+    # Comparar cantidades: detectar aumentos y disminuciones
+    all_types = set(list(current_counts.keys()) + list(previous_counts.keys()))
+    violations_added = []
+    violations_removed = []
+
+    for vtype in all_types:
+        curr_count = current_counts.get(vtype, 0)
+        prev_count = previous_counts.get(vtype, 0)
+
+        if curr_count > prev_count:
+            # Aumentó: reportar las "nuevas" violaciones de este tipo
+            sample = next((v for v in current_violations_list if v.get("type") == vtype), None)
+            violations_added.append({
+                "type": vtype,
+                "line": sample.get("line", 0) if sample else 0,
+                "severity": sample.get("severity", "low") if sample else "low",
+                "delta": curr_count - prev_count,
+            })
+        elif curr_count < prev_count:
+            # Disminuyó: reportar las violaciones "eliminadas" de este tipo
+            sample = next((v for v in previous_violations_list if v.get("type") == vtype), None)
+            violations_removed.append({
+                "type": vtype,
+                "line": sample.get("line", 0) if sample else 0,
+                "severity": sample.get("severity", "low") if sample else "low",
+                "delta": prev_count - curr_count,
+            })
 
     if not previous_file:
         status = "new"
@@ -35,7 +65,23 @@ def compute_file_diff(current_file: dict, previous_file: dict) -> dict:
     elif current_score < previous_score:
         status = "regressed"
     else:
-        status = "unchanged"
+        # Si el score no cambió pero las violaciones cambiaron en cantidad,
+        # verificar si hay diferencias en los counts
+        if violations_added or violations_removed:
+            # Determinar si es mejora o empeoramiento por cantidad neta
+            net_change = sum(
+                current_counts.get(t, 0) - previous_counts.get(t, 0)
+                for t in all_types
+            )
+            if net_change < 0:
+                status = "improved"
+            elif net_change > 0:
+                status = "regressed"
+            else:
+                # Misma cantidad pero diferentes tipos: reemplazo
+                status = "regressed" if violations_added else "improved"
+        else:
+            status = "unchanged"
 
     return {
         "file_path": current_file.get("path", ""),

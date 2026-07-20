@@ -60,6 +60,45 @@ export function createScanStream(jobId) {
 }
 
 /**
+ * Sube un archivo individual para analizarlo.
+ * @param {File} file - El archivo a analizar (.py, .js, .ts, .tsx)
+ * @param {function} onProgress - Callback de progreso (bytes enviados / total)
+ * @returns {Promise<object>} Resultado del análisis
+ */
+export async function uploadFile(file, onProgress) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  // Usamos XMLHttpRequest para tracking de progreso
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE}/api/scan/upload`);
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(e.loaded / e.total);
+      }
+    };
+
+    xhr.onload = () => {
+      try {
+        const body = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(body);
+        } else {
+          reject(new Error(body.detail || `HTTP ${xhr.status}`));
+        }
+      } catch {
+        reject(new Error(`Invalid response (HTTP ${xhr.status})`));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error("Network error"));
+    xhr.send(formData);
+  });
+}
+
+/**
  * Exporta el reporte HTML como blob.
  * @param {string} jobId
  * @returns {Promise<Blob>}

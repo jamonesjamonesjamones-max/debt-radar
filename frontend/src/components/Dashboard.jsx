@@ -146,7 +146,7 @@ export default function Dashboard({ data, jobId }) {
 
       {/* Scan comparison — only show when comparison data exists */}
       {!focusMode && data.comparison && (
-        <div style={{animationDelay:"0.05s"}} className="animate-card-enter"><LazySection><ScanDiff jobId={jobId} /></LazySection></div>
+        <div style={{animationDelay:"0.12s"}} className="animate-card-enter"><LazySection><ScanDiff jobId={jobId} /></LazySection></div>
       )}
 
       {/* Scan history + comparison — hidden in focus mode */}
@@ -158,25 +158,24 @@ export default function Dashboard({ data, jobId }) {
       {!focusMode && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <div style={{animationDelay:"0.1s"}} className="animate-card-enter"><LazySection><HeatMap files={files} onSelect={setSelectedFile} /></LazySection></div>
+          <div style={{animationDelay:"0.18s"}} className="animate-card-enter"><LazySection><HeatMap files={files} onSelect={setSelectedFile} /></LazySection></div>
         </div>
         <div>
-          <div style={{animationDelay:"0.15s"}} className="animate-card-enter"><LazySection><RadarChart files={files} /></LazySection></div>
+          <div style={{animationDelay:"0.24s"}} className="animate-card-enter"><LazySection><RadarChart files={files} /></LazySection></div>
         </div>
       </div>
       )}
 
       {/* Dependency Graph — hidden in focus mode */}
-      {!focusMode && jobId && (
-        <div style={{animationDelay:"0.18s"}} className="animate-card-enter"><LazySection><DependencyGraph jobId={jobId} onSelectFile={handleActionSelectFile} /></LazySection></div>
+      {!focusMode && jobId && (          <div style={{animationDelay:"0.30s"}} className="animate-card-enter"><LazySection><DependencyGraph jobId={jobId} onSelectFile={handleActionSelectFile} /></LazySection></div>
       )}
 
       {/* Hall of Shame */}
-      <div style={{animationDelay:"0.2s"}} className="animate-card-enter"><LazySection><HallOfShame files={files} onSelect={setSelectedFile} /></LazySection></div>
+      <div style={{animationDelay:"0.36s"}} className="animate-card-enter"><LazySection><HallOfShame files={files} onSelect={setSelectedFile} /></LazySection></div>
 
       {/* Action Plan — Prioritized recommendations */}
       {jobId && (
-        <div style={{animationDelay:"0.25s"}} className="animate-card-enter"><LazySection><ActionPlan jobId={jobId} onSelectFile={handleActionSelectFile} /></LazySection></div>
+        <div style={{animationDelay:"0.42s"}} className="animate-card-enter"><LazySection><ActionPlan jobId={jobId} onSelectFile={handleActionSelectFile} /></LazySection></div>
       )}
 
       {/* Git Integrations: Historial + Blame — hidden in focus mode */}

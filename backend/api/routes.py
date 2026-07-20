@@ -11,12 +11,14 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
+import tempfile
+
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File
+from fastapi.responses import StreamingResponse, JSONResponse
 
 from api.schemas import ScanRequest, ScanJobCreated
 from analyzer.scanner import discover_files
-from analyzer.orchestrator import run_scan_job
+from analyzer.orchestrator import run_scan_job, safe_process_file
 from analyzer.metrics import aggregate_results
 from utils.badges import generate_grade_badge, generate_error_badge
 from utils.report_generator import generate_html_report
@@ -89,6 +91,82 @@ def _validate_path(path: str) -> str:
         raise HTTPException(status_code=403, detail="Read permission denied")
 
     return expanded
+
+
+# Extensiones de archivo permitidas para subida
+ALLOWED_UPLOAD_EXTENSIONS = {".py", ".js", ".jsx", ".ts", ".tsx"}
+MAX_UPLOAD_SIZE = 1 * 1024 * 1024  # 1MB
+
+
+@router.post("/scan/upload")
+async def upload_and_scan(file: UploadFile = File(...)):
+    """
+    Recibe un archivo individual, lo analiza y devuelve el resultado.
+    El archivo se guarda temporalmente y se elimina tras el análisis.
+    """
+    # Validar que hay archivo
+    if not file or not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    # Validar extensión
+    _, ext = os.path.splitext(file.filename)
+    if ext.lower() not in ALLOWED_UPLOAD_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type '{ext}'. Allowed: {', '.join(sorted(ALLOWED_UPLOAD_EXTENSIONS))}"
+        )
+
+    # Leer contenido
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large ({len(content)} bytes). Maximum is {MAX_UPLOAD_SIZE // 1024}KB."
+        )
+
+    # Guardar a archivo temporal y analizar
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            suffix=ext, mode="wb", delete=False
+        ) as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
+
+        # Analizar con el mismo pipeline que usa el scan normal
+        result = safe_process_file(tmp_path)
+
+        # Si el archivo fue marcado como skipped, devolver error
+        if result.get("skipped"):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Could not analyze file: {result.get('reason', 'Unknown error')}"
+            )
+
+        return JSONResponse(content={
+            "filename": file.filename,
+            "path": file.filename,
+            "language": result.get("language", "unknown"),
+            "lines": result.get("lines", 0),
+            "score": result.get("score", 0),
+            "deductions": result.get("deductions", {}),
+            "violations": result.get("violations", []),
+        })
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Analysis error: {str(e)[:200]}"
+        )
+    finally:
+        # Limpiar archivo temporal
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
 
 
 @router.post("/scan", response_model=ScanJobCreated)

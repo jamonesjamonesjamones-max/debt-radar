@@ -7,7 +7,7 @@ import { useState } from "react";
 import EmptyStateComponent from "./ui/EmptyState";
 import { FolderIcon, WarningIcon, BoomIcon, LightbulbIcon, CopyIcon, CheckIcon } from "./ui/Icons";
 
-function Idle() {
+function Idle({ onLoadDemo }) {
   return (
     <div className="animate-fade-in">
       <EmptyStateComponent
@@ -28,6 +28,24 @@ function Idle() {
           </>
         }
         hint="Supports Python, JavaScript and TypeScript. 100% local — your code never leaves your machine."
+        action={
+          onLoadDemo ? (
+            <div className="pt-2 flex flex-col items-center gap-3">
+              <span className="text-[10px] text-text-muted uppercase tracking-wider">or try it now</span>
+              <button
+                onClick={onLoadDemo}
+                className="btn-primary btn-sm btn-magnetic"
+                aria-label="View a sample report without scanning"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M8 5v3l2 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                Explore Sample Report
+              </button>
+            </div>
+          ) : undefined
+        }
       />
     </div>
   );

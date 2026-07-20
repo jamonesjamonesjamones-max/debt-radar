@@ -5,34 +5,43 @@ import LoadingState from "./components/LoadingState";
 import EmptyStates from "./components/EmptyStates";
 import OnboardingModal from "./components/OnboardingModal";
 import ErrorBoundary from "./components/ErrorBoundary";
+import FileDropZone from "./components/FileDropZone";
 import { useAnalysis } from "./hooks/useAnalysis";
 import ConfettiOverlay from "./components/ui/ConfettiOverlay";
-import { usePWA } from "./hooks/usePWA";
 import FeedbackWidget from "./components/FeedbackWidget";
 
 const Dashboard = lazy(() => import("./components/Dashboard"));
 const PortfolioDashboard = lazy(() => import("./components/PortfolioDashboard"));
 
 export default function App() {
-  const { isInstallable, isStandalone, installApp } = usePWA();
-  const [dismissedInstall, setDismissedInstall] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [path, setPath] = useState("");
+  const [workers, setWorkers] = useState(4);
+  const [showOnboarding, setShowOnboarding] = useState(true);
+  const { state, data, progress, error, errorStatus, jobId, startScan, loadDemo, startUpload, reset } = useAnalysis();
 
-  // Dynamic page title
+  // Dynamic page title with live progress percentage
   useEffect(() => {
-    document.title = state === "scanning" ? "Scanning... | DebtRadar" :
-                     state === "done" ? "Results | DebtRadar" :
-                     "DebtRadar";
-  }, [state]);
+    if (state === "scanning" && progress?.percent != null) {
+      document.title = `${Math.round(progress.percent)}% Scanning | DebtRadar`;
+    } else if (state === "scanning") {
+      document.title = "Scanning... | DebtRadar";
+    } else if (state === "uploading") {
+      document.title = "Uploading & Analyzing | DebtRadar";
+    } else if (state === "done") {
+      document.title = `Results ${data?.summary?.grade || ""} | DebtRadar`;
+    } else {
+      document.title = "DebtRadar — Code Health Auditor";
+    }
+  }, [state, progress?.percent, data?.summary?.grade]);
 
-  
   // Global keyboard shortcuts
   useEffect(() => {
     const handler = (e) => {
       if (e.ctrlKey && e.key === "Enter" && state === "idle" && path.trim()) {
         handleScan();
       }
-      if (e.key === "Escape" && (state === "done" || state === "error" || state === "empty")) {
+      if (e.key === "Escape" && (state === "done" || state === "error" || state === "empty" || state === "uploading")) {
         reset();
       }
     };
@@ -48,10 +57,6 @@ export default function App() {
     }
     prevState.current = state;
   }, [state]);
-  const [path, setPath] = useState("");
-  const [workers, setWorkers] = useState(4);
-  const [showOnboarding, setShowOnboarding] = useState(true);
-  const { state, data, progress, error, errorStatus, jobId, startScan, reset } = useAnalysis();
 
   // Portfolio view state
   const [showPortfolio, setShowPortfolio] = useState(false);
@@ -70,6 +75,17 @@ export default function App() {
     }
   }, [state, data, feedbackShown]);
 
+  // Auto-scroll to results when scan completes
+  const resultsRef = useRef(null);
+  useEffect(() => {
+    if (state === "done" && data) {
+      const timer = setTimeout(() => {
+        resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [state, data]);
+
   const handleShowTutorial = () => {
     setShowOnboarding(true);
   };
@@ -78,6 +94,10 @@ export default function App() {
     if (!path.trim()) return;
     startScan(path.trim(), workers);
   };
+
+  const handleUploadFile = useCallback((file) => {
+    startUpload(file);
+  }, [startUpload]);
 
   return (
     <div className="min-h-screen bg-surface-0 flex flex-col">
@@ -95,32 +115,12 @@ export default function App() {
         {state === "error" && <span>Scan failed. See error details.</span>}
         {state === "empty" && <span>No files found in selected path.</span>}
         {state === "scanning" && progress && <span>Scan in progress: {Math.round(progress.percent || 0)} percent complete.</span>}
+        {state === "uploading" && <span>Analyzing uploaded file.</span>}
       </div>
       <OnboardingModal
         isOpen={showOnboarding}
         onClose={() => setShowOnboarding(false)}
       />
-      {/* PWA Install Banner */}
-      {isInstallable && !isStandalone && !dismissedInstall && (
-        <div className="bg-accent/10 border-b border-accent/20 px-4 py-2 flex items-center justify-center gap-3 text-xs">
-          <span className="text-text-secondary">Install DebtRadar for offline access</span>
-          <button
-            onClick={installApp}
-            className="px-3 py-1 rounded-pill bg-accent text-white text-[10px] font-medium hover:bg-accent/90 interactive-transition"
-          >
-            Install App
-          </button>
-          <button
-            onClick={() => setDismissedInstall(true)}
-            className="text-text-muted hover:text-text-secondary interactive-transition"
-            aria-label="Dismiss install prompt"
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </button>
-        </div>
-      )}
       <TopNav
         path={path}
         setPath={setPath}
@@ -152,7 +152,28 @@ export default function App() {
             transition={{ duration: 0.3, ease: "easeOut" }}
             role="region" aria-label="Welcome screen"
           >
-            <EmptyStates.Idle />
+            <EmptyStates.Idle onLoadDemo={loadDemo} />
+            <div className="max-w-2xl mx-auto px-6 pb-8">
+              <div className="relative flex items-center gap-3 py-4">
+                <div className="flex-1 h-px bg-surface-4" />
+                <span className="text-[10px] text-text-muted uppercase tracking-wider">or upload a file</span>
+                <div className="flex-1 h-px bg-surface-4" />
+              </div>
+              <FileDropZone onFileSelected={handleUploadFile} disabled={false} />
+            </div>
+          </motion.div>
+        )}
+
+        {state === "uploading" && (
+          <motion.div
+            key="uploading"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            role="region" aria-label="File analysis progress"
+          >
+            <LoadingState progress={progress} />
           </motion.div>
         )}
 
@@ -180,6 +201,7 @@ export default function App() {
         {state === "done" && data && (
           <motion.div
             key="done"
+            ref={resultsRef}
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -30 }}

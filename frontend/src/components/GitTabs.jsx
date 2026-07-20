@@ -3,7 +3,7 @@
  * Usa iconos SVG en lugar de emojis.
  */
 
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense, useCallback } from "react";
 import { API_BASE } from "../api/client";
 import { HistoryIcon, PersonIcon, WarningIcon, ErrorXIcon, LoadingIcon } from "./ui/Icons";
 
@@ -25,8 +25,7 @@ export default function GitTabs({ jobId }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const fetchHistory = async () => {
-    if (history || loading) return;
+  const fetchHistory = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -42,10 +41,9 @@ export default function GitTabs({ jobId }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_BASE, jobId]);
 
-  const fetchBlame = async () => {
-    if (blame || loading) return;
+  const fetchBlame = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -61,12 +59,12 @@ export default function GitTabs({ jobId }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_BASE, jobId]);
 
   useEffect(() => {
     if (activeTab === "history" && !history) fetchHistory();
     if (activeTab === "blame" && !blame) fetchBlame();
-  }, [activeTab]);
+  }, [activeTab, fetchHistory, fetchBlame, history, blame]);
 
   const tabs = [
     { key: "history", label: "History", icon: HistoryIcon, description: "Score evolution across commits" },

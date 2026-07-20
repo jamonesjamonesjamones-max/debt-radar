@@ -27,6 +27,7 @@ export default function TopNav({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isDockerMode, setIsDockerMode] = useState(false);
   const inputRef = useRef(null);
+  const blurTimeoutRef = useRef(null);
 
   // Cargar paths recientes de localStorage
   useEffect(() => {
@@ -38,6 +39,15 @@ export default function TopNav({
     } catch {
       // localStorage no disponible
     }
+  }, []);
+
+  // Cleanup timeout al desmontar
+  useEffect(() => {
+    return () => {
+      if (blurTimeoutRef.current !== null) {
+        clearTimeout(blurTimeoutRef.current);
+      }
+    };
   }, []);
 
   // Actualizar modo según path
@@ -80,10 +90,6 @@ export default function TopNav({
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleScan();
-    }
     if (e.key === "Escape") {
       setShowSuggestions(false);
     }
@@ -136,8 +142,19 @@ export default function TopNav({
                 value={path}
                 autoFocus={autoFocus}
                 onChange={(e) => setPath(e.target.value)}
-                onFocus={() => setShowSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                onFocus={() => {
+                  if (blurTimeoutRef.current !== null) {
+                    clearTimeout(blurTimeoutRef.current);
+                    blurTimeoutRef.current = null;
+                  }
+                  setShowSuggestions(true);
+                }}
+                onBlur={() => {
+                  blurTimeoutRef.current = setTimeout(() => {
+                    setShowSuggestions(false);
+                    blurTimeoutRef.current = null;
+                  }, 200);
+                }}
                 onKeyDown={handleKeyDown}
                 placeholder={
                   isDockerMode
@@ -259,7 +276,7 @@ export default function TopNav({
               type="submit"
               disabled={!path.trim()}
               title={!path.trim() ? "Type a project path above to enable scanning" : "Start scanning (Ctrl+Enter)"}
-              className="btn-primary btn-sm btn-magnetic relative overflow-hidden"
+              className={`btn-primary btn-sm btn-magnetic relative overflow-hidden ${path.trim() && !scanning ? "animate-scan-pulse" : ""}`}
             >
               {path.trim() && <span className="absolute inset-0 bg-white/5 animate-shimmer rounded-md pointer-events-none" />}
               <PlayIcon size={14} />

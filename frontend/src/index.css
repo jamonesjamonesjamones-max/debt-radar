@@ -134,6 +134,39 @@
   }
 
   /* Shimmer loading placeholder */
+  /* Scan button pulse when path is entered */
+  /* Grade bounce-in for SummaryBar */
+  .animate-grade-bounce {
+    animation: gradeBounce 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes gradeBounce {
+    0% { opacity: 0; transform: scale(0.3) rotate(-10deg); }
+    50% { opacity: 1; transform: scale(1.15) rotate(2deg); }
+    70% { transform: scale(0.95) rotate(-1deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0deg); }
+  }
+
+  /* MetricBox cascade entrance */
+  .animate-metric-enter {
+    animation: metricFadeIn 0.4s ease-out both;
+  }
+  .animate-metric-enter:nth-child(1) { animation-delay: 0.05s; }
+  .animate-metric-enter:nth-child(2) { animation-delay: 0.12s; }
+  .animate-metric-enter:nth-child(3) { animation-delay: 0.19s; }
+  .animate-metric-enter:nth-child(4) { animation-delay: 0.26s; }
+  @keyframes metricFadeIn {
+    0% { opacity: 0; transform: translateY(12px) scale(0.95); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .animate-scan-pulse {
+    animation: scanPulse 2s ease-in-out infinite;
+  }
+  @keyframes scanPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(99,102,241,0.1); }
+  }
+
   .shimmer-block {
     @apply rounded-md bg-surface-3;
     background: linear-gradient(90deg, #18181c 25%, #222228 50%, #18181c 75%);

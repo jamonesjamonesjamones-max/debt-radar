@@ -34,14 +34,22 @@ function AnimatedCounter({ value, duration = 0.6 }) {
     const num = parseInt(String(value).replace(/[^0-9]/g, "")) || 0;
     if (num === 0) { setDisplay(0); return; }
     const startTime = performance.now();
+    let rafId = null;
     const animate = (now) => {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / (duration * 1000), 1);
       const eased = 1 - Math.pow(1 - progress, 3);
       setDisplay(Math.round(0 + (num - 0) * eased));
-      if (progress < 1) requestAnimationFrame(animate);
+      if (progress < 1) {
+        rafId = requestAnimationFrame(animate);
+      }
     };
-    requestAnimationFrame(animate);
+    rafId = requestAnimationFrame(animate);
+    return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+    };
   }, [value, duration]);
   const suffix = String(value).replace(/[0-9,.-]/g, "");
   return <>{display.toLocaleString()}{suffix}</>;
@@ -98,10 +106,11 @@ const SummaryBar = memo(function SummaryBar({ summary, jobId, comparison }) {
       {/* Hero section */}
       <div className="px-6 py-5 sm:px-8 sm:py-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-          {/* Grade hero */}
+          {/* Grade hero — bounce entrance animation */}
           <div className="flex items-center gap-4 shrink-0">
             <div
-              className={`text-display-lg font-bold font-display leading-none ${gradeColor}`}
+              className={`text-display-lg font-bold font-display leading-none ${gradeColor} animate-grade-bounce`}
+              key={summary.grade}
             >
               {summary.grade}
             </div>
@@ -129,8 +138,8 @@ const SummaryBar = memo(function SummaryBar({ summary, jobId, comparison }) {
             </div>
           </div>
 
-          {/* Metrics */}
-          <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
+          {/* Metrics — cascade entrance */}
+          <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 animate-metric-enter">
             <MetricBox
               label="Files"
               value={<AnimatedCounter value={summary.total_files || 0} />}

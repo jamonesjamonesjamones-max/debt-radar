@@ -80,7 +80,7 @@ export default function RadarChartComponent({ files }) {
 
   if (!radarData.length) {
     return (
-      <div className="card-premium p-5 h-full flex flex-col">
+      <div className="card-premium p-5 flex flex-col" style={{ minHeight: "360px" }}>
         <h3 className="section-header mb-1 flex items-center gap-1.5">Debt Radar <InfoTooltip text="Four dimensions of technical debt measured from 0–100. Lower is better. Complex code, accumulated TODOs, magic numbers, and oversized files all hurt maintainability." side="bottom" /></h3>
         <p className="text-text-muted text-xs">No data available.</p>
       </div>
@@ -88,12 +88,12 @@ export default function RadarChartComponent({ files }) {
   }
 
   return (
-    <div className="card-premium p-5 h-full flex flex-col">
+    <div className="card-premium p-5 flex flex-col" style={{ minHeight: "360px" }}>
       <h3 className="section-header mb-1 flex items-center gap-1.5">Debt Radar <InfoTooltip text="Four dimensions of technical debt measured from 0–100. Lower is better. Complex code, accumulated TODOs, magic numbers, and oversized files all hurt maintainability." side="bottom" /></h3>
       <p className="text-caption text-text-muted mb-4">
         {radarData.length} dimensions measured
       </p>
-      <div className="h-[260px] min-h-[260px]">
+      <div style={{ height: "280px", minHeight: "280px", width: "100%" }}>
         <ResponsiveContainer width="100%" height="100%">
           <RechartRadar data={radarData} cx="50%" cy="50%" outerRadius="70%">
             <PolarGrid stroke="#2a2a32" strokeOpacity={0.6} />

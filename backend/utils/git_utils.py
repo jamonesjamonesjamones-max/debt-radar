@@ -197,7 +197,7 @@ def run_git_blame(path: str, filepath: str) -> dict[int, str]:
             text=True,
             timeout=30,
         )
-        if result.returncode != 0:
+        if result.returncode != 0 or not result.stdout:
             return {}
 
         line_authors = {}

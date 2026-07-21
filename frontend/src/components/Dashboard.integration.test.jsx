@@ -13,7 +13,6 @@ vi.mock("./RadarChart", () => ({ default: () => <div data-testid="radarchart" />
 vi.mock("./HallOfShame", () => ({ default: (p) => <div data-testid="hall-of-shame">{p.files?.length} files</div> }));
 vi.mock("./CodeViewer", () => ({ default: (p) => <div data-testid="code-viewer">{p.file?.path}</div> }));
 vi.mock("./ScanHistory", () => ({ default: () => <div data-testid="scan-history" /> }));
-vi.mock("./ActionPlan", () => ({ default: () => <div data-testid="action-plan" /> }));
 vi.mock("./ScanDiff", () => ({ default: () => <div data-testid="scan-diff" /> }));
 vi.mock("./DependencyGraph", () => ({ default: () => <div data-testid="dep-graph" /> }));
 
@@ -56,10 +55,9 @@ describe("Dashboard integration", () => {
     expect(screen.getByTestId("radarchart")).toBeInTheDocument();
   });
 
-  it("shows HallOfShame and ActionPlan", () => {
+  it("shows HallOfShame", () => {
     render(<Dashboard data={mockData} jobId="test-123" />);
     expect(screen.getByTestId("hall-of-shame")).toBeInTheDocument();
-    expect(screen.getByTestId("action-plan")).toBeInTheDocument();
   });
 
   it("shows DependencyGraph when jobId exists", () => {
@@ -75,11 +73,10 @@ describe("Dashboard integration", () => {
     expect(screen.queryByTestId("radarchart")).not.toBeInTheDocument();
   });
 
-  it("Focus Mode still shows HallOfShame and ActionPlan", () => {
+  it("Focus Mode still shows HallOfShame", () => {
     render(<Dashboard data={mockData} jobId="test-123" />);
     fireEvent.click(screen.getByText("Action Mode"));
     expect(screen.getByTestId("hall-of-shame")).toBeInTheDocument();
-    expect(screen.getByTestId("action-plan")).toBeInTheDocument();
   });
 
   it("shows skipped files section", () => {

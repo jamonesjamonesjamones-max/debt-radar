@@ -10,4 +10,4 @@ tree-sitter-typescript>=0.23.0
 typer>=0.12.0
 rich>=13.0.0
 jinja2>=3.1.0
-python-multipart
+python-multipart==0.0.20

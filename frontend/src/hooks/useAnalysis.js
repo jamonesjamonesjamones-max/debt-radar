@@ -27,15 +27,23 @@ export function useAnalysis() {
   const [error, setError] = useState("");
   const [errorStatus, setErrorStatus] = useState(null);
   const [jobId, setJobId] = useState(null);
+  const [analysisSource, setAnalysisSource] = useState("none");
   const eventSourceRef = useRef(null);
+  // Flag that gets set synchronously in onmessage when scan finishes.
+  // Prevents onerror (fired when the SSE connection drops) from
+  // overwriting "done" state with "error" due to a race condition.
+  const doneRef = useRef(false);
 
   const reset = useCallback(() => {
+    doneRef.current = false;
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
     }
     setState("idle");
     setData(null);
+    setJobId(null);
+    setAnalysisSource("none");
     setError("");
     setProgress({
       percent: 0,
@@ -75,6 +83,7 @@ export function useAnalysis() {
 
             // Job completado
             if (payload.status === "completed") {
+              doneRef.current = true;
               es.close();
               eventSourceRef.current = null;
 
@@ -87,6 +96,7 @@ export function useAnalysis() {
                   setState("empty");
                 } else {
                   setData(payload.result);
+                  setAnalysisSource("server");
                   setState("done");
                   // Cache result in IndexedDB for offline access
                   import("../hooks/useIndexedDB").then(function(m) {
@@ -100,6 +110,7 @@ export function useAnalysis() {
 
             // Job con error
             if (payload.status === "error") {
+              doneRef.current = true;
               es.close();
               eventSourceRef.current = null;
               setError(payload.error || "Error desconocido en el escaneo");
@@ -111,6 +122,13 @@ export function useAnalysis() {
         };
 
         es.onerror = () => {
+          // Si ya recibimos "completed" o "error" via onmessage, ignoramos
+          // el onerror. Esto evita que la reconexión automática del EventSource
+          // (que se dispara cuando la conexión TCP se cierra) sobreescriba
+          // el estado "done" con "error".
+          if (doneRef.current) {
+            return;
+          }
           es.close();
           eventSourceRef.current = null;
           // Solo marcar error si seguimos en scanning (no fue un cierre limpio)
@@ -213,6 +231,7 @@ export function useAnalysis() {
 
       setData(singleFileData);
       setJobId("upload-" + Date.now());
+      setAnalysisSource("upload");
       setState("done");
 
     } catch (err) {
@@ -226,6 +245,7 @@ export function useAnalysis() {
     import("../utils/sampleData").then(function(m) {
       setData(m.SAMPLE_DATA);
       setJobId(m.SAMPLE_JOB_ID);
+      setAnalysisSource("demo");
       setState("done");
       setProgress({
         percent: 100,
@@ -247,6 +267,7 @@ export function useAnalysis() {
     error,
     errorStatus,
     jobId,
+    analysisSource,
     startScan: startScanFlow,
     loadDemo,
     startUpload,

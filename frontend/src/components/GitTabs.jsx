@@ -6,6 +6,7 @@
 import { useState, useEffect, lazy, Suspense, useCallback } from "react";
 import { API_BASE } from "../api/client";
 import { HistoryIcon, PersonIcon, WarningIcon, ErrorXIcon, LoadingIcon } from "./ui/Icons";
+import { SAMPLE_JOB_ID, SAMPLE_GIT_HISTORY, SAMPLE_GIT_BLAME } from "../utils/sampleData";
 
 const TimelineChart = lazy(() => import("./TimelineChart"));
 const BlameChart = lazy(() => import("./BlameChart"));
@@ -18,6 +19,18 @@ function LazySection({ children }) {
   );
 }
 
+async function getGitErrorMessage(response) {
+  const payload = await response.json().catch(() => ({}));
+  const detail = payload.detail || `HTTP ${response.status}`;
+  if (response.status === 404 && /job no encontrado|job not found/i.test(detail)) {
+    return "This scan session has expired. Run a new repository scan to load Git insights.";
+  }
+  if (response.status === 400 && /no es un repositorio git|not a git repository/i.test(detail)) {
+    return "Git insights are available only when scanning a Git repository.";
+  }
+  return detail;
+}
+
 export default function GitTabs({ jobId }) {
   const [activeTab, setActiveTab] = useState("history");
   const [history, setHistory] = useState(null);
@@ -26,13 +39,17 @@ export default function GitTabs({ jobId }) {
   const [error, setError] = useState("");
 
   const fetchHistory = useCallback(async () => {
+    // Demo mode: use embedded sample data instead of fetching from backend
+    if (jobId === SAMPLE_JOB_ID) {
+      setHistory(SAMPLE_GIT_HISTORY);
+      return;
+    }
     setLoading(true);
     setError("");
     try {
       const res = await fetch(`${API_BASE}/api/scan/${jobId}/history?commits=5`);
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || `HTTP ${res.status}`);
+        throw new Error(await getGitErrorMessage(res));
       }
       const data = await res.json();
       setHistory(data);
@@ -44,13 +61,17 @@ export default function GitTabs({ jobId }) {
   }, [API_BASE, jobId]);
 
   const fetchBlame = useCallback(async () => {
+    // Demo mode: use embedded sample data instead of fetching from backend
+    if (jobId === SAMPLE_JOB_ID) {
+      setBlame(SAMPLE_GIT_BLAME);
+      return;
+    }
     setLoading(true);
     setError("");
     try {
       const res = await fetch(`${API_BASE}/api/scan/${jobId}/blame`);
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || `HTTP ${res.status}`);
+        throw new Error(await getGitErrorMessage(res));
       }
       const data = await res.json();
       setBlame(data);

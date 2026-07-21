@@ -199,7 +199,25 @@
     box-shadow: 0 12px 32px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.2);
   }
 
+  /* Confetti fall animation for completion celebration */
+  .animate-confetti-fall {
+    animation: confettiFall 2.5s ease-out forwards;
+    animation-delay: var(--delay, 0s);
+  }
 
+  @keyframes confettiFall {
+    0% {
+      transform: translateY(-10px) rotate(0deg);
+      opacity: 1;
+    }
+    80% {
+      opacity: 0.8;
+    }
+    100% {
+      transform: translateY(100vh) rotate(720deg);
+      opacity: 0;
+    }
+  }
 }
 
 @layer components {

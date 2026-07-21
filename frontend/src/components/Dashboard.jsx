@@ -14,7 +14,6 @@ const RadarChart = lazy(() => import("./RadarChart"));
 const HallOfShame = lazy(() => import("./HallOfShame"));
 const CodeViewer = lazy(() => import("./CodeViewer"));
 const ScanHistory = lazy(() => import("./ScanHistory"));
-const ActionPlan = lazy(() => import("./ActionPlan"));
 const ScanDiff = lazy(() => import("./ScanDiff"));
 const DependencyGraph = lazy(() => import("./DependencyGraph"));
 
@@ -101,7 +100,7 @@ const ExecutiveSummary = memo(function ExecutiveSummary({ summary, files }) {
     </div>
   );
 });
-export default function Dashboard({ data, jobId }) {
+export default function Dashboard({ data, jobId, analysisSource = "server" }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [focusMode, setFocusMode] = useState(() => {
     try { return localStorage.getItem("debtradar-focus-mode") === "true"; }
@@ -115,11 +114,13 @@ export default function Dashboard({ data, jobId }) {
   };
 
   const { summary, files = [], skipped_files = [] } = data;
+  const hasRepositoryInsights = analysisSource === "server" || analysisSource === "demo";
+  const serverJobId = analysisSource === "server" ? jobId : null;
 
-  const handleActionSelectFile = (filePath) => {
+  const handleSelectFile = (filePath) => {
     const found = files.find(f => f.path === filePath);
     if (found) setSelectedFile(found);
-    else console.warn('ActionPlan: file not found in results:', filePath);
+    else console.warn("Selected file was not found in scan results:", filePath);
   };
 
   return (
@@ -137,7 +138,7 @@ export default function Dashboard({ data, jobId }) {
       </div>
 
       {/* Resumen superior */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}><SummaryBar summary={summary} jobId={jobId} /></motion.div>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}><SummaryBar summary={summary} jobId={serverJobId} comparison={data.comparison} /></motion.div>
 
       {/* Executive Summary — Natural language insight */}
       {summary && (
@@ -145,7 +146,7 @@ export default function Dashboard({ data, jobId }) {
       )}
 
       {/* Scan comparison — only show when comparison data exists */}
-      {!focusMode && data.comparison && (
+      {!focusMode && analysisSource === "server" && data.comparison && (
         <div style={{animationDelay:"0.12s"}} className="animate-card-enter"><LazySection><ScanDiff jobId={jobId} /></LazySection></div>
       )}
 
@@ -167,19 +168,15 @@ export default function Dashboard({ data, jobId }) {
       )}
 
       {/* Dependency Graph — hidden in focus mode */}
-      {!focusMode && jobId && (          <div style={{animationDelay:"0.30s"}} className="animate-card-enter"><LazySection><DependencyGraph jobId={jobId} onSelectFile={handleActionSelectFile} /></LazySection></div>
+      {!focusMode && hasRepositoryInsights && jobId && (
+        <div style={{animationDelay:"0.30s"}} className="animate-card-enter"><LazySection><DependencyGraph jobId={jobId} onSelectFile={handleSelectFile} /></LazySection></div>
       )}
 
       {/* Hall of Shame */}
       <div style={{animationDelay:"0.36s"}} className="animate-card-enter"><LazySection><HallOfShame files={files} onSelect={setSelectedFile} /></LazySection></div>
 
-      {/* Action Plan — Prioritized recommendations */}
-      {jobId && (
-        <div style={{animationDelay:"0.42s"}} className="animate-card-enter"><LazySection><ActionPlan jobId={jobId} onSelectFile={handleActionSelectFile} /></LazySection></div>
-      )}
-
       {/* Git Integrations: Historial + Blame — hidden in focus mode */}
-      {!focusMode && jobId && <GitTabs jobId={jobId} />}
+      {!focusMode && hasRepositoryInsights && jobId && <GitTabs jobId={jobId} />}
 
       {/* Archivos skipped */}
       {skipped_files.length > 0 && (

@@ -18,7 +18,7 @@ export default function App() {
   const [path, setPath] = useState("");
   const [workers, setWorkers] = useState(4);
   const [showOnboarding, setShowOnboarding] = useState(true);
-  const { state, data, progress, error, errorStatus, jobId, startScan, loadDemo, startUpload, reset } = useAnalysis();
+  const { state, data, progress, error, errorStatus, jobId, analysisSource, startScan, loadDemo, startUpload, reset } = useAnalysis();
 
   // Dynamic page title with live progress percentage
   useEffect(() => {
@@ -42,7 +42,12 @@ export default function App() {
         handleScan();
       }
       if (e.key === "Escape" && (state === "done" || state === "error" || state === "empty" || state === "uploading")) {
-        reset();
+        // Cuando hay resultados visibles (state === "done"), pedir confirmación
+        // para evitar que un Escape accidental borre todo el escaneo.
+        // En estados error/empty/uploading no hay datos que perder.
+        if (state !== "done" || window.confirm("Reset the current results? All scan data will be cleared.")) {
+          reset();
+        }
       }
     };
     window.addEventListener("keydown", handler);
@@ -210,7 +215,7 @@ export default function App() {
           >
             <ErrorBoundary onReset={reset}>
             <Suspense fallback={<div className="h-96 flex items-center justify-center" role="status" aria-label="Loading results"><LoadingState progress={{ percent: 0, elapsed: 0, filesCompleted: 0, totalFiles: 0 }} /></div>}>
-              <Dashboard data={data} jobId={jobId} />
+              <Dashboard data={data} jobId={jobId} analysisSource={analysisSource} />
             </Suspense>
           </ErrorBoundary>
           </motion.div>

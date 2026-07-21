@@ -100,35 +100,6 @@ class SSEProgress(BaseModel):
     error: Optional[str] = None
 
 
-class RecommendationFile(BaseModel):
-    """Recommendation for a single file."""
-    file_path: str
-    current_score: int
-    potential_score: int
-    score_gain: int
-    estimated_effort_minutes: float
-    impact_ratio: float
-    priority_label: str
-    reason: str
-
-
-class RecommendationSummary(BaseModel):
-    """Summary of all recommendations."""
-    total_files_analyzed: int
-    critical_count: int
-    high_count: int
-    medium_count: int
-    low_count: int
-    max_potential_gain: int
-    total_estimated_effort_minutes: float
-
-
-class RecommendationsResponse(BaseModel):
-    """Response with prioritized recommendations."""
-    recommendations: list[RecommendationFile]
-    summary: RecommendationSummary
-
-
 class GraphNode(BaseModel):
     """A single node in the dependency graph."""
     id: int

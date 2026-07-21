@@ -24,7 +24,6 @@ from utils.badges import generate_grade_badge, generate_error_badge
 from utils.report_generator import generate_html_report
 from analyzer.git_history import analyze_last_n_commits
 from analyzer.git_blame import analyze_blame
-from analyzer.recommendations import compute_all_recommendations
 from analyzer.scan_diff import compute_full_diff
 from analyzer.dependency_graph import build_dependency_graph
 from utils.git_utils import is_git_repo
@@ -37,21 +36,56 @@ router = APIRouter()
 # Diccionario en memoria para trackear el estado de cada job
 active_jobs: dict[str, dict[str, Any]] = {}
 
-# Límites de seguridad
+# Límites de seguridad y retención de resultados de sesión.
 MAX_ACTIVE_JOBS = 100
 MAX_CONCURRENT_SCANS = 5
+JOB_RESULT_TTL_SECONDS = 30 * 60
+TERMINAL_JOB_STATUSES = {"completed", "error", "cancelled"}
+
+
+async def _expire_job_after_ttl(job_id: str):
+    """Elimina un job terminal después de mantener sus resultados durante la sesión."""
+    await asyncio.sleep(JOB_RESULT_TTL_SECONDS)
+    job = active_jobs.get(job_id)
+    if not job or job.get("status") not in TERMINAL_JOB_STATUSES:
+        return
+
+    completed_at = job.get("completed_at") or job.get("start_time", 0)
+    if time.time() - completed_at >= JOB_RESULT_TTL_SECONDS:
+        active_jobs.pop(job_id, None)
+
+
+def _schedule_job_expiry(job_id: str):
+    """Programa la limpieza diferida una vez que un job llega a estado terminal."""
+    asyncio.create_task(_expire_job_after_ttl(job_id))
 
 
 def _cleanup_old_jobs():
-    """Elimina jobs completados/error para evitar memory leak."""
-    if len(active_jobs) <= MAX_ACTIVE_JOBS:
+    """Elimina jobs terminales expirados y limita los resultados retenidos en memoria."""
+    now = time.time()
+    expired_job_ids = [
+        job_id
+        for job_id, job in active_jobs.items()
+        if job.get("status") in TERMINAL_JOB_STATUSES
+        and now - (job.get("completed_at") or job.get("start_time", now)) >= JOB_RESULT_TTL_SECONDS
+    ]
+    for job_id in expired_job_ids:
+        active_jobs.pop(job_id, None)
+
+    overflow = len(active_jobs) - MAX_ACTIVE_JOBS
+    if overflow <= 0:
         return
-    to_remove = []
-    for jid, job in active_jobs.items():
-        if job.get("status") in ("completed", "error"):
-            to_remove.append(jid)
-    for jid in to_remove[:-50]:
-        active_jobs.pop(jid, None)
+
+    terminal_jobs = sorted(
+        (
+            (job_id, job.get("completed_at") or job.get("start_time", 0))
+            for job_id, job in active_jobs.items()
+            if job.get("status") in TERMINAL_JOB_STATUSES
+        ),
+        key=lambda item: item[1],
+    )
+    for job_id, _ in terminal_jobs[:overflow]:
+        active_jobs.pop(job_id, None)
 
 
 def _count_running_scans() -> int:
@@ -220,6 +254,7 @@ async def create_scan(request: ScanRequest):
         "result": None,
         "error": None,
         "start_time": time.time(),
+        "completed_at": None,
         "path": expanded_path,
         "workers": request.workers,
         "skipped_files": skipped_files,
@@ -323,25 +358,6 @@ async def get_git_blame(job_id: str):
     files = job["result"].get("files", [])
     blame_data = analyze_blame(repo_path, files)
     return blame_data
-
-
-@router.get("/scan/{job_id}/recommendations")
-async def get_recommendations(job_id: str):
-    """
-    Returns prioritized refactoring recommendations for a completed scan.
-    Each file gets an impact ratio (score gain per minute of effort).
-    Sorted by impact (highest first).
-    """
-    job = active_jobs.get(job_id)
-    if not job or job.get("status") != "completed" or not job.get("result"):
-        raise HTTPException(status_code=404, detail="Job not found or not completed")
-
-    files = job["result"].get("files", [])
-    if not files:
-        raise HTTPException(status_code=404, detail="No files in scan result")
-
-    recommendations = compute_all_recommendations(files)
-    return recommendations
 
 
 @router.get("/scan/{job_id}/diff")
@@ -456,10 +472,13 @@ async def scan_stream(job_id: str, request: Request):
             while True:
                 # Check if client disconnected
                 if await request.is_disconnected():
-                    # Marcar job como cancelado para detener workers
+                    # Marcar job como cancelado para detener workers y conservarlo
+                    # temporalmente para que el estado de la sesión sea consistente.
                     job = active_jobs.get(job_id)
                     if job and job.get("status") == "running":
                         job["status"] = "cancelled"
+                        job["completed_at"] = time.time()
+                        _schedule_job_expiry(job_id)
                     break
 
                 job = active_jobs.get(job_id)
@@ -492,11 +511,7 @@ async def scan_stream(job_id: str, request: Request):
                 yield f"data: {json.dumps(payload)}\n\n"
                 await asyncio.sleep(0.5)
         finally:
-            # Cleanup: remove completed/error/cancelled job after delay
-            await asyncio.sleep(5)
-            job = active_jobs.get(job_id)
-            if job and job.get("status") in ("completed", "error", "cancelled"):
-                active_jobs.pop(job_id, None)
+            _cleanup_old_jobs()
 
     return StreamingResponse(
         event_generator(),
@@ -560,7 +575,11 @@ async def _run_real_scan(job_id: str, file_paths: list[str], workers: int):
                 pass  # No fallar el escaneo por errores de DB
 
             job["status"] = "completed"
+            job["completed_at"] = time.time()
+            _schedule_job_expiry(job_id)
 
     except Exception as e:
         job["status"] = "error"
         job["error"] = f"{type(e).__name__}: {str(e)[:200]}"
+        job["completed_at"] = time.time()
+        _schedule_job_expiry(job_id)

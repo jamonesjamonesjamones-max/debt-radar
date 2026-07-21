@@ -39,7 +39,7 @@ The real problem is **accidental complexity**, regardless of its origin. A human
 <div align="center">
 
 [![Release](https://img.shields.io/badge/release-v1.0.0-6366f1?style=flat-square)]()
-[![Tests](https://img.shields.io/badge/tests-163%20passed-22c55e?style=flat-square)]()
+[![Tests](https://img.shields.io/badge/tests-161%20passed-22c55e?style=flat-square)]()
 [![Docker](https://img.shields.io/badge/docker-compose-2496ED?style=flat-square&logo=docker)]()
 [![Python](https://img.shields.io/badge/python-3.11+-3776AB?style=flat-square&logo=python)]()
 [![React](https://img.shields.io/badge/react-18-61DAFB?style=flat-square&logo=react)]()
@@ -54,7 +54,6 @@ The real problem is **accidental complexity**, regardless of its origin. A human
 | **Debt Radar** | 4-axis radar of complexity, TODOs, magic numbers, and oversized files |
 | **Hall of Shame** | Paginated ranking of worst files with exact violation locations |
 | **Code Viewer** | Modal inspection with severity-coded violations and code context |
-| **Action Plan** | Files ranked by impact per minute of effort — best ROI first |
 | **Dependency Graph** | Interactive force-directed graph of import relationships, color-coded by health |
 | **Scan Comparison** | Side-by-side diff against previous scans — what improved or regressed |
 | **Portfolio Dashboard** | Multi-project overview for teams managing many repositories |

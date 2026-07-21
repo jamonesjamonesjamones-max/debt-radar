@@ -11,6 +11,7 @@ import { useState, useEffect, useRef, memo } from 'react';
 import { motion } from 'framer-motion';
 import { API_BASE } from '../api/client';
 import { shortenPath } from '../utils/paths';
+import { SAMPLE_JOB_ID, SAMPLE_DEPENDENCY_GRAPH } from '../utils/sampleData';
 
 const API_URL = (API_BASE || "").replace(/[/]+$/, "");
 
@@ -205,10 +206,24 @@ function DependencyGraphInner({ jobId, onSelectFile }) {
 
   useEffect(() => {
     if (!jobId) return;
+    // Demo mode: use embedded sample data instead of fetching from backend
+    if (jobId === SAMPLE_JOB_ID) {
+      setGraphData(SAMPLE_DEPENDENCY_GRAPH);
+      setLoading(false);
+      return;
+    }
     setLoading(true); setError(null);
     const url = (API_URL || "") + "/api/scan/" + jobId + "/dependency-graph";
     fetch(url)
-      .then(r => { if (!r.ok) throw new Error("Failed to load graph"); return r.json(); })
+      .then(async r => {
+        if (r.ok) return r.json();
+        const payload = await r.json().catch(() => ({}));
+        const detail = payload.detail || `HTTP ${r.status}`;
+        if (r.status === 404 && /job not found|job no encontrado/i.test(detail)) {
+          throw new Error("This scan session has expired. Run a new repository scan to load the dependency graph.");
+        }
+        throw new Error(detail);
+      })
       .then(data => {
         if (!data.nodes || data.nodes.length === 0) throw new Error("No dependency data available");
         setGraphData(data); setLoading(false);

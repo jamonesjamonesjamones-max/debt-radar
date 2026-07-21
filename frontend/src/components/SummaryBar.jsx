@@ -161,30 +161,31 @@ const SummaryBar = memo(function SummaryBar({ summary, jobId, comparison }) {
             />
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-2 shrink-0 self-stretch sm:self-center">
-            <button
-              onClick={handleExport}
-              disabled={exporting || !jobId}
-              className="btn-secondary btn-sm btn-magnetic"
-              title="Download a self-contained HTML report"
-              aria-busy={exporting}
-              aria-label={exporting ? "Exporting report..." : "Download HTML report"}
-            >
-              {exporting ? <LoadingIcon size={14} /> : <DownloadIcon size={14} />}
-              <span className="hidden sm:inline">{exporting ? "Exporting..." : "Export"}</span>
-            </button>
-            <button
-              onClick={handleCopyBadge}
-              disabled={!jobId}
-              className="btn-secondary btn-sm btn-magnetic"
-              title="Copy a Markdown badge for your README"
-              aria-label={copiedBadge ? "Badge copied to clipboard" : "Copy badge markdown for README"}
-            >
-              {copiedBadge ? <CheckIcon size={14} className="text-semantic-success" /> : <TagIcon size={14} />}
-              <span className="hidden sm:inline">{copiedBadge ? "Copied" : "Badge"}</span>
-            </button>
-          </div>
+          {/* Server-backed actions are unavailable for demo and single-file uploads. */}
+          {jobId && (
+            <div className="flex items-center gap-2 shrink-0 self-stretch sm:self-center">
+              <button
+                onClick={handleExport}
+                disabled={exporting}
+                className="btn-secondary btn-sm btn-magnetic"
+                title="Download a self-contained HTML report"
+                aria-busy={exporting}
+                aria-label={exporting ? "Exporting report..." : "Download HTML report"}
+              >
+                {exporting ? <LoadingIcon size={14} /> : <DownloadIcon size={14} />}
+                <span className="hidden sm:inline">{exporting ? "Exporting..." : "Export"}</span>
+              </button>
+              <button
+                onClick={handleCopyBadge}
+                className="btn-secondary btn-sm btn-magnetic"
+                title="Copy a Markdown badge for your README"
+                aria-label={copiedBadge ? "Badge copied to clipboard" : "Copy badge markdown for README"}
+              >
+                {copiedBadge ? <CheckIcon size={14} className="text-semantic-success" /> : <TagIcon size={14} />}
+                <span className="hidden sm:inline">{copiedBadge ? "Copied" : "Badge"}</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

@@ -316,3 +316,4 @@ export default function TopNav({
     </header>
   );
 }
+// TODO: this is a deliberate change for ScanDiff testing - remove after screenshots

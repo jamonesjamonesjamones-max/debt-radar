@@ -93,7 +93,7 @@ export default function RadarChartComponent({ files }) {
       <p className="text-caption text-text-muted mb-4">
         {radarData.length} dimensions measured
       </p>
-      <div className="flex-1 min-h-0">
+      <div className="h-[260px] min-h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
           <RechartRadar data={radarData} cx="50%" cy="50%" outerRadius="70%">
             <PolarGrid stroke="#2a2a32" strokeOpacity={0.6} />
